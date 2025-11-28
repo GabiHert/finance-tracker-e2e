@@ -122,6 +122,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M8 Dashboard & Analytics tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm8-dashboard',
+      testDir: './tests/m8-dashboard',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

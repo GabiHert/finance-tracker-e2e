@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Test output
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Auth state (generated during tests)
+tests/fixtures/.auth/
+
+# Environment (contains local paths)
+.env.e2e
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

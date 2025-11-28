@@ -132,6 +132,26 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M9 Groups & Collaboration tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm9-groups',
+      testDir: './tests/m9-groups',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
+    // M10 Settings & User Profile tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm10-settings',
+      testDir: './tests/m10-settings',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

@@ -102,6 +102,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M6 Category Rules tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm6-rules',
+      testDir: './tests/m6-rules',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

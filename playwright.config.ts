@@ -152,6 +152,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M11 Polish & MVP Completion tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm11-polish',
+      testDir: './tests/m11-polish',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

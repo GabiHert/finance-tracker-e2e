@@ -112,6 +112,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M7 Goals (Spending Limits) tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm7-goals',
+      testDir: './tests/m7-goals',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

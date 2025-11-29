@@ -5,10 +5,10 @@ import { test, expect } from '@playwright/test'
  * Validates the bulk categorization flow for transactions:
  * - Select multiple transactions
  * - Bulk actions bar appears with "Change Category" button
- * - Click "Change Category" button
- *
- * Note: The bulk categorization modal is not yet fully implemented
- * in the frontend. These tests verify the UI elements that exist.
+ * - Click "Change Category" button to open modal
+ * - Modal shows selected count and transaction preview
+ * - Category selector with apply/cancel actions
+ * - Apply clears selection, Cancel keeps selection
  *
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
@@ -118,7 +118,7 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 		await expect(page.getByTestId('bulk-actions-bar')).not.toBeVisible()
 	})
 
-	test('M4-E2E-10g: Change Category button should be clickable', async ({ page }) => {
+	test('M4-E2E-10g: Change Category button should open bulk categorize modal', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
 		await page.getByTestId('transaction-checkbox').first().click()
@@ -128,12 +128,115 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 		await expect(changeCategoryBtn).toBeVisible()
 		await expect(changeCategoryBtn).toBeEnabled()
 
-		// Step 3: Click the button
-		// Note: Currently the button has no onClick handler in the frontend
-		// This test verifies the button is clickable, not the modal behavior
+		// Step 3: Click the button to open modal
 		await changeCategoryBtn.click()
 
-		// Note: Full bulk categorization modal is not yet implemented
-		// When implemented, add expectations for modal appearance and category selection
+		// Step 4: Verify modal opens
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 5: Verify modal shows correct count
+		await expect(page.getByTestId('bulk-categorize-count')).toContainText('1')
+	})
+
+	test('M4-E2E-10h: Bulk categorize modal should show selected count and preview', async ({ page }) => {
+		// Step 1: Navigate and select multiple transactions
+		await page.goto('/transactions')
+
+		const checkboxes = page.getByTestId('transaction-checkbox')
+		const checkboxCount = await checkboxes.count()
+		const selectCount = Math.min(3, checkboxCount)
+
+		for (let i = 0; i < selectCount; i++) {
+			await checkboxes.nth(i).click()
+		}
+
+		// Step 2: Open bulk categorize modal
+		await page.getByTestId('bulk-edit-category-btn').click()
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 3: Verify count display
+		await expect(page.getByTestId('bulk-categorize-count')).toContainText(`${selectCount}`)
+
+		// Step 4: Verify preview is visible when transactions are selected
+		await expect(page.getByTestId('bulk-categorize-preview')).toBeVisible()
+	})
+
+	test('M4-E2E-10i: Bulk categorize modal should have category selector', async ({ page }) => {
+		// Step 1: Navigate and select transaction
+		await page.goto('/transactions')
+		await page.getByTestId('transaction-checkbox').first().click()
+
+		// Step 2: Open modal
+		await page.getByTestId('bulk-edit-category-btn').click()
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 3: Verify category selector exists
+		await expect(page.getByTestId('bulk-categorize-category-select')).toBeVisible()
+
+		// Step 4: Verify Apply button is disabled when no category selected
+		await expect(page.getByTestId('bulk-categorize-apply-btn')).toBeDisabled()
+	})
+
+	test('M4-E2E-10j: Should enable Apply button when category is selected', async ({ page }) => {
+		// Step 1: Navigate and select transaction
+		await page.goto('/transactions')
+		await page.getByTestId('transaction-checkbox').first().click()
+
+		// Step 2: Open modal
+		await page.getByTestId('bulk-edit-category-btn').click()
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 3: Verify Apply button is initially disabled
+		await expect(page.getByTestId('bulk-categorize-apply-btn')).toBeDisabled()
+
+		// Step 4: Select a category from dropdown
+		const categorySelect = page.getByTestId('bulk-categorize-category-select')
+		await categorySelect.selectOption({ index: 1 })
+
+		// Step 5: Verify Apply button is now enabled
+		await expect(page.getByTestId('bulk-categorize-apply-btn')).toBeEnabled()
+	})
+
+	test('M4-E2E-10k: Should close modal and clear selection when clicking Apply', async ({ page }) => {
+		// Step 1: Navigate and select transaction
+		await page.goto('/transactions')
+		await page.getByTestId('transaction-checkbox').first().click()
+		await expect(page.getByTestId('bulk-actions-bar')).toBeVisible()
+
+		// Step 2: Open modal
+		await page.getByTestId('bulk-edit-category-btn').click()
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 3: Select a category
+		const categorySelect = page.getByTestId('bulk-categorize-category-select')
+		await categorySelect.selectOption({ index: 1 })
+
+		// Step 4: Click Apply
+		await page.getByTestId('bulk-categorize-apply-btn').click()
+
+		// Step 5: Verify modal closes
+		await expect(page.getByTestId('bulk-categorize-modal')).not.toBeVisible()
+
+		// Step 6: Verify selection is cleared (bulk actions bar hidden)
+		await expect(page.getByTestId('bulk-actions-bar')).not.toBeVisible()
+	})
+
+	test('M4-E2E-10l: Should close modal when clicking Cancel', async ({ page }) => {
+		// Step 1: Navigate and select transaction
+		await page.goto('/transactions')
+		await page.getByTestId('transaction-checkbox').first().click()
+
+		// Step 2: Open modal
+		await page.getByTestId('bulk-edit-category-btn').click()
+		await expect(page.getByTestId('bulk-categorize-modal')).toBeVisible()
+
+		// Step 3: Click Cancel
+		await page.getByTestId('bulk-categorize-cancel-btn').click()
+
+		// Step 4: Verify modal closes
+		await expect(page.getByTestId('bulk-categorize-modal')).not.toBeVisible()
+
+		// Step 5: Verify selection is NOT cleared (bulk actions bar still visible)
+		await expect(page.getByTestId('bulk-actions-bar')).toBeVisible()
 	})
 })

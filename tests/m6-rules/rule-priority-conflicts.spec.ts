@@ -1,16 +1,13 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * M6-E2E-08: Rule Priority Conflicts
- * Validates the handling of overlapping/conflicting rules:
+ * M6-E2E-08: Rule Priority & Reordering
+ * Validates rule priority handling and drag-and-drop reordering:
  * - Create rules with overlapping patterns
  * - Verify priority determines which rule applies
  * - Test drag-and-drop to change priority
  * - Verify higher priority rule wins when multiple rules match
- *
- * Note: The conflict warning feature (warning when creating a rule
- * that conflicts with an existing one) is not yet implemented.
- * These tests verify the existing priority-based resolution.
+ * - Verify priority persists after page refresh
  *
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
@@ -142,36 +139,7 @@ test.describe('M6: Rule Priority Conflicts', () => {
 		}
 	})
 
-	test('M6-E2E-08e: Should show conflict indicator for overlapping patterns', async ({ page }) => {
-		/**
-		 * Note: Conflict warning feature is not yet implemented.
-		 * This test documents the expected behavior when implemented.
-		 *
-		 * Expected behavior:
-		 * 1. When creating a rule with pattern that overlaps existing rules
-		 * 2. System should show a warning/indicator about potential conflicts
-		 * 3. User should see which existing rules might conflict
-		 */
-
-		// Step 1: Navigate to rules screen
-		await page.goto('/rules')
-		await expect(page.getByTestId('rules-screen')).toBeVisible()
-
-		// Step 2: Verify rules list is visible
-		await expect(page.getByTestId('rules-list')).toBeVisible()
-
-		// Step 3: Check for any conflict indicators in existing rules
-		// When implemented, look for: data-testid="conflict-warning" or similar
-		const conflictWarning = page.getByTestId('conflict-warning')
-		const conflictIndicator = page.getByTestId('conflict-indicator')
-
-		// Currently not implemented - verify the basic UI works
-		const ruleRows = page.getByTestId('rule-row')
-		const count = await ruleRows.count()
-		expect(count).toBeGreaterThanOrEqual(0)
-	})
-
-	test('M6-E2E-08f: Should maintain priority after page refresh', async ({ page }) => {
+	test('M6-E2E-08e: Should maintain priority after page refresh', async ({ page }) => {
 		// Step 1: Navigate to rules screen
 		await page.goto('/rules')
 		await expect(page.getByTestId('rules-screen')).toBeVisible()
@@ -193,7 +161,7 @@ test.describe('M6: Rule Priority Conflicts', () => {
 		}
 	})
 
-	test('M6-E2E-08g: Priority reordering should update priority numbers', async ({ page }) => {
+	test('M6-E2E-08f: Priority reordering should update priority numbers', async ({ page }) => {
 		// Step 1: Navigate to rules screen
 		await page.goto('/rules')
 		await expect(page.getByTestId('rules-screen')).toBeVisible()

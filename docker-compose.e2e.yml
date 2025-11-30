@@ -1,21 +1,21 @@
-# Finance Tracker - E2E Test Environment
-# Uses different ports to avoid conflicts with development environment
+# Finance Tracker - E2E Bug Test Environment
+# Uses different ports AND container names to avoid conflicts
 # Usage: docker-compose -f docker-compose.e2e.yml --env-file .env.e2e up -d
 
 services:
-  # PostgreSQL Database for E2E Tests
-  postgres-e2e:
+  # PostgreSQL Database for E2E Bug Tests
+  postgres-e2e-bugs:
     image: postgres:15-alpine
-    container_name: finance-tracker-postgres-e2e
+    container_name: finance-tracker-postgres-e2e-bugs
     restart: unless-stopped
     environment:
       POSTGRES_USER: e2e_user
       POSTGRES_PASSWORD: e2e_password
       POSTGRES_DB: finance_tracker_e2e
     ports:
-      - "${POSTGRES_E2E_PORT:-5434}:5432"
+      - "${POSTGRES_E2E_PORT:-5555}:5432"
     volumes:
-      - postgres_e2e_data:/var/lib/postgresql/data
+      - postgres_e2e_bugs_data:/var/lib/postgresql/data
       - ${INFRA_PATH}/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U e2e_user -d finance_tracker_e2e"]
@@ -24,80 +24,80 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
-  # MinIO Object Storage for E2E Tests
-  minio-e2e:
+  # MinIO Object Storage for E2E Bug Tests
+  minio-e2e-bugs:
     image: minio/minio:latest
-    container_name: finance-tracker-minio-e2e
+    container_name: finance-tracker-minio-e2e-bugs
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: e2e_minio_admin
       MINIO_ROOT_PASSWORD: e2e_minio_password
     ports:
-      - "${MINIO_E2E_API_PORT:-9002}:9000"
-      - "${MINIO_E2E_CONSOLE_PORT:-9003}:9001"
+      - "${MINIO_E2E_API_PORT:-9004}:9000"
+      - "${MINIO_E2E_CONSOLE_PORT:-9005}:9001"
     volumes:
-      - minio_e2e_data:/data
+      - minio_e2e_bugs_data:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 10s
       retries: 5
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
   # MinIO Client - Creates default bucket on startup
-  minio-e2e-init:
+  minio-e2e-bugs-init:
     image: minio/mc:latest
-    container_name: finance-tracker-minio-e2e-init
+    container_name: finance-tracker-minio-e2e-bugs-init
     depends_on:
-      minio-e2e:
+      minio-e2e-bugs:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set myminio http://minio-e2e:9000 e2e_minio_admin e2e_minio_password;
+      mc alias set myminio http://minio-e2e-bugs:9000 e2e_minio_admin e2e_minio_password;
       mc mb myminio/finance-tracker-uploads --ignore-existing;
       mc anonymous set download myminio/finance-tracker-uploads;
       exit 0;
       "
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
-  # Redis Cache for E2E Tests
-  redis-e2e:
+  # Redis Cache for E2E Bug Tests
+  redis-e2e-bugs:
     image: redis:7-alpine
-    container_name: finance-tracker-redis-e2e
+    container_name: finance-tracker-redis-e2e-bugs
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass e2e_redis_password
     ports:
-      - "${REDIS_E2E_PORT:-6380}:6379"
+      - "${REDIS_E2E_PORT:-6399}:6379"
     volumes:
-      - redis_e2e_data:/data
+      - redis_e2e_bugs_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "e2e_redis_password", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
-  # Backend Service for E2E Tests
-  backend-e2e:
+  # Backend Service for E2E Bug Tests
+  backend-e2e-bugs:
     build:
       context: ${BACKEND_PATH}
       dockerfile: ${E2E_PATH}/docker/Dockerfile.backend
-    container_name: finance-tracker-backend-e2e
+    container_name: finance-tracker-backend-e2e-bugs
     restart: unless-stopped
     environment:
       - ENV=e2e
       - E2E_MODE=true
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8081
-      - DATABASE_URL=postgres://e2e_user:e2e_password@postgres-e2e:5432/finance_tracker_e2e?sslmode=disable
-      - REDIS_URL=redis://:e2e_redis_password@redis-e2e:6379/0
-      - MINIO_ENDPOINT=minio-e2e:9000
+      - DATABASE_URL=postgres://e2e_user:e2e_password@postgres-e2e-bugs:5432/finance_tracker_e2e?sslmode=disable
+      - REDIS_URL=redis://:e2e_redis_password@redis-e2e-bugs:6379/0
+      - MINIO_ENDPOINT=minio-e2e-bugs:9000
       - MINIO_ACCESS_KEY=e2e_minio_admin
       - MINIO_SECRET_KEY=e2e_minio_password
       - MINIO_BUCKET=finance-tracker-uploads
@@ -106,16 +106,16 @@ services:
       - JWT_EXPIRY=15m
       - REFRESH_TOKEN_EXPIRY=7d
     ports:
-      - "${BACKEND_E2E_PORT:-8081}:8081"
+      - "${BACKEND_E2E_PORT:-9081}:8081"
     volumes:
       - ${BACKEND_PATH}:/app
       - /app/tmp
     depends_on:
-      postgres-e2e:
+      postgres-e2e-bugs:
         condition: service_healthy
-      redis-e2e:
+      redis-e2e-bugs:
         condition: service_healthy
-      minio-e2e:
+      minio-e2e-bugs:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
@@ -124,26 +124,26 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
-  # Frontend Service for E2E Tests
-  frontend-e2e:
+  # Frontend Service for E2E Bug Tests
+  frontend-e2e-bugs:
     build:
       context: ${FRONTEND_PATH}
       dockerfile: ${E2E_PATH}/docker/Dockerfile.frontend
-    container_name: finance-tracker-frontend-e2e
+    container_name: finance-tracker-frontend-e2e-bugs
     restart: unless-stopped
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://backend-e2e:8081/api/v1
-      - VITE_PROXY_TARGET=http://backend-e2e:8081
+      - VITE_API_URL=http://backend-e2e-bugs:8081/api/v1
+      - VITE_PROXY_TARGET=http://backend-e2e-bugs:8081
     ports:
-      - "${FRONTEND_E2E_PORT:-3001}:3001"
+      - "${FRONTEND_E2E_PORT:-4001}:3001"
     volumes:
       - ${FRONTEND_PATH}:/app
       - /app/node_modules
     depends_on:
-      backend-e2e:
+      backend-e2e-bugs:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001"]
@@ -152,19 +152,19 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - finance-tracker-e2e-network
+      - finance-tracker-e2e-bugs-network
 
-# Named volumes for E2E data (separate from dev)
+# Named volumes for E2E bug test data (separate from dev and other e2e)
 volumes:
-  postgres_e2e_data:
-    name: finance-tracker-postgres-e2e-data
-  minio_e2e_data:
-    name: finance-tracker-minio-e2e-data
-  redis_e2e_data:
-    name: finance-tracker-redis-e2e-data
+  postgres_e2e_bugs_data:
+    name: finance-tracker-postgres-e2e-bugs-data
+  minio_e2e_bugs_data:
+    name: finance-tracker-minio-e2e-bugs-data
+  redis_e2e_bugs_data:
+    name: finance-tracker-redis-e2e-bugs-data
 
-# Separate network for E2E tests
+# Separate network for E2E bug tests
 networks:
-  finance-tracker-e2e-network:
-    name: finance-tracker-e2e-network
+  finance-tracker-e2e-bugs-network:
+    name: finance-tracker-e2e-bugs-network
     driver: bridge

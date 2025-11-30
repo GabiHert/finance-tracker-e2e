@@ -64,6 +64,13 @@ test.describe('M4: Bulk Categorize Transactions', () => {
         categoryId: seededCategories.find(c => c.type === 'expense')?.id,
       },
     ])
+
+    // Reload page to pick up seeded data and wait for it to be ready
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    // Wait for transactions to be visible
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
   })
 
   test('M4-E2E-10a: Should show Change Category button when transactions are selected', async ({ page }) => {
@@ -139,6 +146,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10e: Should select all transactions via header checkbox', async ({ page }) => {
 		// Step 1: Navigate to transactions screen
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
 		// Step 2: Count transactions
 		const transactionCount = await page.getByTestId('transaction-row').count()
@@ -194,6 +203,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10h: Bulk categorize modal should show selected count and preview', async ({ page }) => {
 		// Step 1: Navigate and select multiple transactions
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
 		const checkboxes = page.getByTestId('transaction-checkbox')
 		const checkboxCount = await checkboxes.count()

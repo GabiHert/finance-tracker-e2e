@@ -72,6 +72,13 @@ test.describe('M4: Transaction CRUD Operations', () => {
         categoryId: seededCategories.find(c => c.name === 'Transportation')?.id,
       },
     ])
+
+    // Reload page to pick up seeded data and wait for it to be ready
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    // Wait for transactions to be visible
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
   })
 
   test('M4-E2E-16a: Should complete full transaction creation flow', async ({ page }) => {
@@ -159,7 +166,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 	test('M4-E2E-16c: Should delete single transaction with confirmation', async ({ page }) => {
 		// Step 1: Navigate to transactions screen
 		await page.goto('/transactions')
-		await expect(page.getByTestId('transactions-header')).toBeVisible()
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
 		// Step 2: Get initial transaction count
 		const initialCount = await page.getByTestId('transaction-row').count()
@@ -191,6 +199,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 	test('M4-E2E-16d: Should cancel transaction deletion', async ({ page }) => {
 		// Step 1: Navigate to transactions screen
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
 		// Step 2: Get initial count
 		const initialCount = await page.getByTestId('transaction-row').count()

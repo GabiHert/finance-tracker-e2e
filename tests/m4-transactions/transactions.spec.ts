@@ -68,6 +68,13 @@ test.describe('M4: Transaction Management', () => {
         categoryId: seededCategories.find(c => c.name === 'Transportation')?.id,
       },
     ])
+
+    // Reload page to pick up seeded data and wait for it to be ready
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    // Wait for transactions to be visible
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
   })
 
   test('M4-E2E-001: Should display transactions page with existing transactions', async ({ page }) => {
@@ -111,6 +118,8 @@ test.describe('M4: Transaction Management', () => {
 
   test('M4-E2E-003: Should filter transactions by type (expense)', async ({ page }) => {
     await page.goto('/transactions')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
     // Get initial count of transactions
     const initialRows = await page.getByTestId('transaction-row').count()
@@ -159,6 +168,8 @@ test.describe('M4: Transaction Management', () => {
 
   test('M4-E2E-005: Should search transactions by description', async ({ page }) => {
     await page.goto('/transactions')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
     // Get initial count
     const initialRows = await page.getByTestId('transaction-row').count()
@@ -294,6 +305,8 @@ test.describe('M4: Transaction Management', () => {
 
   test('M4-E2E-012: Should select all transactions via header checkbox', async ({ page }) => {
     await page.goto('/transactions')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
     // Get initial transaction count
     const transactionCount = await page.getByTestId('transaction-row').count()
@@ -335,6 +348,8 @@ test.describe('M4: Transaction Management', () => {
 
   test('M4-E2E-014: Should display transactions grouped by date', async ({ page }) => {
     await page.goto('/transactions')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
     // Verify date group headers exist
     const dateHeaders = page.getByTestId('transaction-date-header')

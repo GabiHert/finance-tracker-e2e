@@ -93,6 +93,8 @@ test.describe('M3: Category Management', () => {
 
   test('M3-E2E-003: Should filter categories by type', async ({ page }) => {
     await page.goto('/categories')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('categories-grid')).toBeVisible({ timeout: 10000 })
 
     // Initially all categories should be visible
     await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).toBeVisible()
@@ -119,6 +121,8 @@ test.describe('M3: Category Management', () => {
 
   test('M3-E2E-004: Should search categories by name', async ({ page }) => {
     await page.goto('/categories')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByTestId('categories-grid')).toBeVisible({ timeout: 10000 })
 
     // Initially multiple categories visible
     await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).toBeVisible()

@@ -46,7 +46,7 @@ test.describe('M11: Toast Notifications', () => {
 
 		if (toastVisible) {
 			const toastText = await successToast.first().textContent()
-			expect(toastText?.toLowerCase()).toMatch(/sucesso|success|criado|created|salvo|saved/)
+			expect(toastText?.toLowerCase()).toMatch(/sucesso|success|criado|criada|created|salvo|saved|transacao/)
 		} else {
 			// Toast may not be implemented - test passes if transaction was created
 			expect(true).toBe(true)

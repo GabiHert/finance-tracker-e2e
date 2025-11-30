@@ -30,11 +30,20 @@ test.describe('M4: Transaction Validation', () => {
 
 		// Seed a category for transaction tests
 		seededCategories = await seedTestCategories(page, [TEST_CATEGORIES.foodAndDining])
+
+		// Reload page to pick up seeded data and wait for it to be ready
+		await page.reload()
+		await page.waitForLoadState('networkidle')
+
+		// Wait for page to stabilize
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.waitFor({ state: 'visible', timeout: 10000 })
 	})
 
 	test('M4-VAL-001: Should reject empty amount', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Fill description but leave amount empty
@@ -65,8 +74,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-002: Should reject zero amount', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Fill form with zero amount
@@ -98,8 +108,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-003: Should reject negative amount input', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Try to enter negative amount
@@ -139,8 +150,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-004: Should handle extremely large amounts', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Enter very large amount
@@ -179,8 +191,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-005: Should reject description exceeding max length', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Enter very long description (1001 characters)
@@ -218,8 +231,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-006: Should require category selection', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Fill form without selecting category
@@ -247,8 +261,9 @@ test.describe('M4: Transaction Validation', () => {
 		// Step 1: Get initial count
 		const initialCount = await page.getByTestId('transaction-row').count()
 
-		// Step 2: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 2: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 3: Fill form
@@ -269,8 +284,9 @@ test.describe('M4: Transaction Validation', () => {
 	})
 
 	test('M4-VAL-008: Should handle special characters in description', async ({ page }) => {
-		// Step 1: Open create transaction modal
-		await page.getByTestId('add-transaction-btn').click()
+		// Step 1: Open create transaction modal (handle empty state or regular button)
+		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+		await addBtn.click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		// Step 2: Enter description with special characters

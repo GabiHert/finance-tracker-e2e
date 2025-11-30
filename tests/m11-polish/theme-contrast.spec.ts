@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test'
+import {
+	seedTestCategories,
+	seedTestTransactions,
+	TEST_CATEGORIES,
+} from '../fixtures/test-utils'
 
 /**
  * M11-E2E: Theme Contrast Validation
@@ -154,6 +159,23 @@ test.describe('M11: Theme Contrast - Dark Mode', () => {
 	})
 
 	test.describe('Transaction Page Contrast', () => {
+		test.beforeEach(async ({ page }) => {
+			// Seed transactions so the header container is visible
+			await page.goto('/transactions')
+			await page.waitForLoadState('networkidle')
+			const seededCategories = await seedTestCategories(page, [TEST_CATEGORIES.foodAndDining])
+			const today = new Date().toISOString().split('T')[0]
+			await seedTestTransactions(page, [{
+				date: today,
+				description: 'Test Transaction',
+				amount: 100,
+				type: 'expense',
+				categoryId: seededCategories[0]?.id,
+			}])
+			await page.reload()
+			await page.waitForLoadState('networkidle')
+		})
+
 		test('M11-CONTRAST-005: Transaction header should use dark background in dark mode', async ({ page }) => {
 			// Navigate to transactions page
 			await page.goto('/transactions')
@@ -527,8 +549,20 @@ test.describe('M11: Theme Contrast - Light Mode', () => {
 	})
 
 	test('M11-CONTRAST-017: Transaction header should have light background in light mode', async ({ page }) => {
-		// Navigate to transactions page
+		// First seed transactions so the header container is visible
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		const seededCategories = await seedTestCategories(page, [TEST_CATEGORIES.foodAndDining])
+		const today = new Date().toISOString().split('T')[0]
+		await seedTestTransactions(page, [{
+			date: today,
+			description: 'Test Transaction',
+			amount: 100,
+			type: 'expense',
+			categoryId: seededCategories[0]?.id,
+		}])
+		await page.reload()
+		await page.waitForLoadState('networkidle')
 
 		// Wait for header using data-testid
 		const header = page.getByTestId('transactions-header-container')

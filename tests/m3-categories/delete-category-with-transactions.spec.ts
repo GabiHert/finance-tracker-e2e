@@ -351,7 +351,8 @@ test.describe('M3: Delete Category with Transactions', () => {
     const transactions = await fetchTransactions(page)
     const orphanedTransaction = transactions.find((t) => t.id === transaction.id)
     expect(orphanedTransaction).toBeDefined()
-    expect(orphanedTransaction?.category_id).toBeNull()
+    // category_id should be null or undefined (backend may omit null fields)
+    expect(orphanedTransaction?.category_id ?? null).toBeNull()
   })
 
   /**

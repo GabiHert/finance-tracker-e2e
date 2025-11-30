@@ -200,3 +200,132 @@ export async function verifyDatabaseRecord(
     expect(data[key]).toBe(value)
   }
 }
+
+/**
+ * Category type definition
+ */
+export interface TestCategory {
+  id: string
+  name: string
+  icon: string
+  color: string
+  type: 'expense' | 'income'
+  transaction_count?: number
+}
+
+/**
+ * Helper to get auth token from localStorage via page context
+ */
+export async function getAuthToken(page: Page): Promise<string> {
+  return await page.evaluate(() => localStorage.getItem('access_token') || '')
+}
+
+/**
+ * Helper to create a category via API
+ */
+export async function createCategory(
+  page: Page,
+  category: { name: string; icon?: string; color?: string; type?: 'expense' | 'income' }
+): Promise<TestCategory> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.post(`${API_URL}/categories`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    data: {
+      name: category.name,
+      icon: category.icon || 'folder',
+      color: category.color || '#3B82F6',
+      type: category.type || 'expense',
+    },
+  })
+
+  if (!response.ok()) {
+    const error = await response.text()
+    throw new Error(`Failed to create category: ${response.status()} - ${error}`)
+  }
+
+  return await response.json()
+}
+
+/**
+ * Helper to delete a category via API
+ */
+export async function deleteCategory(page: Page, categoryId: string): Promise<void> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.delete(`${API_URL}/categories/${categoryId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok() && response.status() !== 404) {
+    throw new Error(`Failed to delete category: ${response.status()}`)
+  }
+}
+
+/**
+ * Helper to fetch all categories via API
+ */
+export async function fetchCategories(page: Page): Promise<TestCategory[]> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.get(`${API_URL}/categories`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch categories: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.categories || []
+}
+
+/**
+ * Helper to delete all categories via API
+ */
+export async function deleteAllCategories(page: Page): Promise<void> {
+  const categories = await fetchCategories(page)
+  for (const category of categories) {
+    await deleteCategory(page, category.id)
+  }
+}
+
+/**
+ * Standard test categories for seeding
+ */
+export const TEST_CATEGORIES = {
+  foodAndDining: { name: 'Food & Dining', icon: 'utensils', color: '#EF4444', type: 'expense' as const },
+  salary: { name: 'Salary', icon: 'banknotes', color: '#22C55E', type: 'income' as const },
+  transportation: { name: 'Transportation', icon: 'car', color: '#F59E0B', type: 'expense' as const },
+  entertainment: { name: 'Entertainment', icon: 'film', color: '#8B5CF6', type: 'expense' as const },
+  shopping: { name: 'Shopping', icon: 'bag-shopping', color: '#EC4899', type: 'expense' as const },
+  freelance: { name: 'Freelance', icon: 'laptop', color: '#14B8A6', type: 'income' as const },
+}
+
+/**
+ * Helper to seed standard test categories
+ */
+export async function seedTestCategories(
+  page: Page,
+  categories: Array<{ name: string; icon?: string; color?: string; type?: 'expense' | 'income' }> = Object.values(TEST_CATEGORIES)
+): Promise<TestCategory[]> {
+  const createdCategories: TestCategory[] = []
+
+  for (const cat of categories) {
+    try {
+      const created = await createCategory(page, cat)
+      createdCategories.push(created)
+    } catch (error) {
+      console.log(`Could not create category ${cat.name}: ${error}`)
+    }
+  }
+
+  return createdCategories
+}

@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test'
+import {
+  createCategory,
+  deleteAllCategories,
+} from '../fixtures/test-utils'
 
 /**
  * M3-E2E-03: Delete Category Flow
@@ -11,6 +15,15 @@ import { test, expect } from '@playwright/test'
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M3: Delete Category Flow', () => {
+	test.beforeEach(async ({ page }) => {
+		// Navigate first to establish auth context
+		await page.goto('/categories')
+		await page.waitForLoadState('domcontentloaded')
+		// Clean up and create a fresh test category
+		await deleteAllCategories(page)
+		await createCategory(page, { name: 'Test Category for Delete', type: 'expense' })
+	})
+
 	test('M3-E2E-03a: Should show delete button on category card hover', async ({ page }) => {
 		// Step 1: Navigate to categories page
 		await page.goto('/categories')
@@ -56,12 +69,14 @@ test.describe('M3: Delete Category Flow', () => {
 	test('M3-E2E-03c: Should cancel deletion and keep category', async ({ page }) => {
 		// Step 1: Navigate to categories page
 		await page.goto('/categories')
+		await expect(page.getByTestId('categories-grid')).toBeVisible()
 
-		// Step 2: Get initial category count
+		// Step 2: Wait for category card to load and get initial count
+		const categoryCard = page.getByTestId('category-card').first()
+		await expect(categoryCard).toBeVisible()
 		const initialCards = await page.getByTestId('category-card').count()
 
 		// Step 3: Open delete dialog
-		const categoryCard = page.getByTestId('category-card').first()
 		await categoryCard.hover()
 		await categoryCard.getByTestId('delete-category-btn').click()
 
@@ -79,13 +94,15 @@ test.describe('M3: Delete Category Flow', () => {
 	test('M3-E2E-03d: Should delete category and show success toast', async ({ page }) => {
 		// Step 1: Navigate to categories page
 		await page.goto('/categories')
+		await expect(page.getByTestId('categories-grid')).toBeVisible()
 
-		// Step 2: Get initial category count and name
+		// Step 2: Wait for category card to load and get initial count
+		const categoryCard = page.getByTestId('category-card').first()
+		await expect(categoryCard).toBeVisible()
 		const initialCards = await page.getByTestId('category-card').count()
-		const firstCardName = await page.getByTestId('category-card').first().getByTestId('category-name').textContent()
+		const firstCardName = await categoryCard.getByTestId('category-name').textContent()
 
 		// Step 3: Open delete dialog
-		const categoryCard = page.getByTestId('category-card').first()
 		await categoryCard.hover()
 		await categoryCard.getByTestId('delete-category-btn').click()
 

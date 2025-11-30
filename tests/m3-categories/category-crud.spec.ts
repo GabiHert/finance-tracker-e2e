@@ -1,4 +1,11 @@
 import { test, expect } from '@playwright/test'
+import {
+  createCategory,
+  deleteAllCategories,
+  seedTestCategories,
+  TEST_CATEGORIES,
+  TestCategory,
+} from '../fixtures/test-utils'
 
 /**
  * M3-E2E: Category CRUD Operations
@@ -12,6 +19,14 @@ import { test, expect } from '@playwright/test'
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M3: Category CRUD Operations', () => {
+	test.beforeEach(async ({ page }) => {
+		// Navigate first to establish auth context
+		await page.goto('/categories')
+		await page.waitForLoadState('domcontentloaded')
+		// Clean up any existing categories before each test
+		await deleteAllCategories(page)
+	})
+
 	test('M3-E2E-06a: Should complete full category creation flow', async ({ page }) => {
 		// Step 1: Navigate to categories screen
 		await page.goto('/categories')
@@ -54,7 +69,10 @@ test.describe('M3: Category CRUD Operations', () => {
 	})
 
 	test('M3-E2E-06b: Should complete full category edit flow', async ({ page }) => {
-		// Step 1: Navigate to categories screen
+		// Step 0: Create a category to edit
+		const testCategory = await createCategory(page, { name: 'Category to Edit', type: 'expense' })
+
+		// Step 1: Navigate to categories screen (reload to see the new category)
 		await page.goto('/categories')
 		await expect(page.getByRole('heading', { name: /categorias|categories/i })).toBeVisible()
 
@@ -151,8 +169,16 @@ test.describe('M3: Category CRUD Operations', () => {
 	})
 
 	test('M3-E2E-06e: Should apply combined search and type filter', async ({ page }) => {
-		// Step 1: Navigate to categories screen
+		// Step 0: Seed test categories for filtering
+		await seedTestCategories(page, [
+			TEST_CATEGORIES.foodAndDining,
+			TEST_CATEGORIES.salary,
+			TEST_CATEGORIES.transportation,
+		])
+
+		// Step 1: Navigate to categories screen (reload to see the seeded data)
 		await page.goto('/categories')
+		await expect(page.getByRole('heading', { name: /categorias|categories/i })).toBeVisible()
 
 		// Step 2: Apply type filter for expense
 		await page.getByTestId('category-type-filter').click()
@@ -181,11 +207,22 @@ test.describe('M3: Category CRUD Operations', () => {
 	})
 
 	test('M3-E2E-06f: Should clear filters and show all categories', async ({ page }) => {
-		// Step 1: Navigate to categories screen
-		await page.goto('/categories')
+		// Step 0: Seed test categories for filtering
+		await seedTestCategories(page, [
+			TEST_CATEGORIES.foodAndDining,
+			TEST_CATEGORIES.salary,
+			TEST_CATEGORIES.transportation,
+		])
 
-		// Step 2: Get initial count of all categories
+		// Step 1: Navigate to categories screen (reload to see the seeded data)
+		await page.goto('/categories')
+		await expect(page.getByRole('heading', { name: /categorias|categories/i })).toBeVisible()
+
+		// Step 2: Wait for categories to load and get initial count
+		await expect(page.getByTestId('categories-grid')).toBeVisible()
+		await expect(page.getByTestId('category-card').first()).toBeVisible()
 		const initialCount = await page.getByTestId('category-card').count()
+		expect(initialCount).toBeGreaterThan(0)
 
 		// Step 3: Apply type filter
 		await page.getByTestId('category-type-filter').click()

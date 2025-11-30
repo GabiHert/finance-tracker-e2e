@@ -1,15 +1,50 @@
 import { test, expect } from '@playwright/test'
+import {
+  seedTestCategories,
+  deleteAllCategories,
+  TEST_CATEGORIES,
+  TestCategory,
+} from '../fixtures/test-utils'
 
 /**
  * M3-E2E: Category Management
- * Validates the categories UI. Note: The frontend categories feature currently uses
- * mock data and is not fully integrated with the backend API yet.
+ * Validates the categories UI with real backend API integration.
  *
  * Authentication: These tests use saved auth state from auth.setup.ts
  * (configured via storageState in playwright.config.ts)
  */
 test.describe('M3: Category Management', () => {
-  // No login needed - auth state is pre-populated by auth-setup project
+  let seededCategories: TestCategory[] = []
+
+  test.beforeAll(async ({ browser }) => {
+    // Create a page to seed test data
+    const context = await browser.newContext({ storageState: 'tests/fixtures/.auth/user.json' })
+    const page = await context.newPage()
+
+    // Navigate to app to ensure localStorage is accessible
+    await page.goto('/categories')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Clean up any existing categories and seed fresh test data
+    await deleteAllCategories(page)
+    seededCategories = await seedTestCategories(page, [
+      TEST_CATEGORIES.foodAndDining,
+      TEST_CATEGORIES.salary,
+      TEST_CATEGORIES.transportation,
+    ])
+
+    await context.close()
+  })
+
+  test.afterAll(async ({ browser }) => {
+    // Clean up seeded categories after all tests
+    const context = await browser.newContext({ storageState: 'tests/fixtures/.auth/user.json' })
+    const page = await context.newPage()
+    await page.goto('/categories')
+    await page.waitForLoadState('domcontentloaded')
+    await deleteAllCategories(page)
+    await context.close()
+  })
 
   test('M3-E2E-001: Should display categories page with existing categories', async ({ page }) => {
     await page.goto('/categories')

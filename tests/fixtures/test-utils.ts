@@ -329,3 +329,144 @@ export async function seedTestCategories(
 
   return createdCategories
 }
+
+// ============================================
+// Transaction API Helpers
+// ============================================
+
+/**
+ * Transaction type definition
+ */
+export interface TestTransaction {
+  id: string
+  date: string
+  description: string
+  amount: string
+  type: 'expense' | 'income'
+  category_id?: string
+  category?: {
+    id: string
+    name: string
+    color: string
+    icon: string
+    type: string
+  }
+  notes: string
+  is_recurring: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Helper to create a transaction via API
+ */
+export async function createTransaction(
+  page: Page,
+  transaction: {
+    date: string // YYYY-MM-DD format
+    description: string
+    amount: number
+    type: 'expense' | 'income'
+    categoryId?: string
+    notes?: string
+  }
+): Promise<TestTransaction> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.post(`${API_URL}/transactions`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    data: {
+      date: transaction.date,
+      description: transaction.description,
+      amount: transaction.amount,
+      type: transaction.type,
+      category_id: transaction.categoryId || null,
+      notes: transaction.notes || '',
+    },
+  })
+
+  if (!response.ok()) {
+    const error = await response.text()
+    throw new Error(`Failed to create transaction: ${response.status()} - ${error}`)
+  }
+
+  return await response.json()
+}
+
+/**
+ * Helper to delete a transaction via API
+ */
+export async function deleteTransaction(page: Page, transactionId: string): Promise<void> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.delete(`${API_URL}/transactions/${transactionId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok() && response.status() !== 404) {
+    throw new Error(`Failed to delete transaction: ${response.status()}`)
+  }
+}
+
+/**
+ * Helper to fetch all transactions via API
+ */
+export async function fetchTransactions(page: Page): Promise<TestTransaction[]> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.get(`${API_URL}/transactions`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch transactions: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.transactions || []
+}
+
+/**
+ * Helper to delete all transactions via API
+ */
+export async function deleteAllTransactions(page: Page): Promise<void> {
+  const transactions = await fetchTransactions(page)
+  for (const transaction of transactions) {
+    await deleteTransaction(page, transaction.id)
+  }
+}
+
+/**
+ * Helper to seed test transactions
+ */
+export async function seedTestTransactions(
+  page: Page,
+  transactions: Array<{
+    date: string
+    description: string
+    amount: number
+    type: 'expense' | 'income'
+    categoryId?: string
+    notes?: string
+  }>
+): Promise<TestTransaction[]> {
+  const createdTransactions: TestTransaction[] = []
+
+  for (const txn of transactions) {
+    try {
+      const created = await createTransaction(page, txn)
+      createdTransactions.push(created)
+    } catch (error) {
+      console.log(`Could not create transaction ${txn.description}: ${error}`)
+    }
+  }
+
+  return createdTransactions
+}

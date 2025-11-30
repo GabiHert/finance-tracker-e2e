@@ -76,8 +76,8 @@ test.describe('M2: Authentication - Logout', () => {
 		// Verify redirected to login
 		await expect(page).toHaveURL(/.*login/)
 
-		// Wait for rate limiting before attempting login again
-		await page.waitForTimeout(3000)
+		// Wait for rate limiting before attempting login again (longer wait for cooldown)
+		await page.waitForTimeout(8000)
 
 		// Login again using the helper with retry logic
 		await loginViaUI(page)

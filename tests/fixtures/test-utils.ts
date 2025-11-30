@@ -91,6 +91,81 @@ export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
 }
 
 /**
+ * Helper to login via UI with request body capture for remember_me tests
+ * Has retry logic to handle rate limiting
+ */
+export async function loginViaUIWithRequestCapture(
+  page: Page,
+  options: { rememberMe?: boolean; maxRetries?: number } = {}
+): Promise<{ requestBody: Record<string, unknown> | null }> {
+  const { rememberMe = false, maxRetries = 3 } = options
+  let loginRequestBody: Record<string, unknown> | null = null
+
+  // Set up request interception
+  await page.route('**/auth/login', async (route, request) => {
+    if (request.method() === 'POST') {
+      try {
+        loginRequestBody = JSON.parse(request.postData() || '{}')
+      } catch {
+        loginRequestBody = null
+      }
+    }
+    await route.continue()
+  })
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // Wait between retries (longer wait for rate limiting cooldown)
+    if (attempt > 1) {
+      await page.waitForTimeout(10000)
+      // Reset to login page for retry
+      await page.goto('/login')
+      await expect(page.getByLabel('E-mail')).toBeVisible()
+    }
+
+    // Fill in credentials
+    await page.getByLabel('E-mail').fill(TEST_USER.email)
+    await page.getByTestId('input-password').fill(TEST_USER.password)
+
+    // Toggle remember me checkbox if needed
+    const checkbox = page.getByTestId('remember-me-checkbox')
+    const isChecked = await checkbox.isChecked()
+    if (rememberMe && !isChecked) {
+      await checkbox.click()
+    } else if (!rememberMe && isChecked) {
+      await checkbox.click()
+    }
+
+    // Submit login
+    await page.getByRole('button', { name: /entrar/i }).click()
+
+    // Wait for navigation or error
+    try {
+      await expect(page).toHaveURL(/.*dashboard|.*\/$/i, { timeout: 15000 })
+      // Success - remove route handler and return
+      await page.unroute('**/auth/login')
+      return { requestBody: loginRequestBody }
+    } catch {
+      // Check for error message (rate limit or auth error)
+      const hasError = await page
+        .getByText(/erro|error|aguarde|wait|limite|limit/i)
+        .isVisible()
+        .catch(() => false)
+
+      if (attempt === maxRetries) {
+        await page.unroute('**/auth/login')
+        throw new Error(
+          `Login failed after ${maxRetries} attempts. ` +
+            (hasError ? 'Backend returned error (may be rate limited).' : 'Navigation timeout.')
+        )
+      }
+    }
+  }
+
+  await page.unroute('**/auth/login')
+  return { requestBody: loginRequestBody }
+}
+
+/**
  * Helper to reset test data via API
  */
 export async function resetTestData(page: Page, token: string): Promise<void> {

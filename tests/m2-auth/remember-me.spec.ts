@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { TEST_USER, createTestUser } from '../fixtures/test-utils'
+import { TEST_USER, createTestUser, loginViaUIWithRequestCapture } from '../fixtures/test-utils'
 
 /**
  * M2-E2E-05: Remember Me Functionality
@@ -124,69 +124,29 @@ test.describe('M2: Remember Me Functionality', () => {
 		// Extra delay to avoid rate limiting from previous tests
 		await page.waitForTimeout(5000)
 
-		// Step 1: Set up request interception
-		let loginRequestBody: Record<string, unknown> | null = null
+		// Use helper with retry logic and request capture
+		const { requestBody } = await loginViaUIWithRequestCapture(page, { rememberMe: true })
 
-		await page.route('**/auth/login', async (route, request) => {
-			if (request.method() === 'POST') {
-				try {
-					loginRequestBody = JSON.parse(request.postData() || '{}')
-				} catch {
-					loginRequestBody = null
-				}
-			}
-			await route.continue()
-		})
+		// Verify successful navigation
+		await expect(page).toHaveURL(/.*dashboard/)
 
-		// Step 2: Fill in credentials and check Remember Me
-		await page.getByLabel('E-mail').fill(TEST_USER.email)
-		await page.getByTestId('input-password').fill(TEST_USER.password)
-		await page.getByTestId('remember-me-checkbox').click()
-
-		// Step 3: Submit login
-		await page.getByRole('button', { name: /entrar/i }).click()
-
-		// Step 4: Wait for navigation and verify request was made with remember_me
-		await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
-
-		// Step 5: Verify the request body contains remember_me: true
-		expect(loginRequestBody).not.toBeNull()
-		expect(loginRequestBody?.remember_me).toBe(true)
+		// Verify the request body contains remember_me: true
+		expect(requestBody).not.toBeNull()
+		expect(requestBody?.remember_me).toBe(true)
 	})
 
 	test('M2-E2E-05g: Should send remember_me as false when unchecked', async ({ page }) => {
 		// Extra delay to avoid rate limiting from previous tests
 		await page.waitForTimeout(5000)
 
-		// Step 1: Set up request interception
-		let loginRequestBody: Record<string, unknown> | null = null
+		// Use helper with retry logic and request capture (remember me unchecked)
+		const { requestBody } = await loginViaUIWithRequestCapture(page, { rememberMe: false })
 
-		await page.route('**/auth/login', async (route, request) => {
-			if (request.method() === 'POST') {
-				try {
-					loginRequestBody = JSON.parse(request.postData() || '{}')
-				} catch {
-					loginRequestBody = null
-				}
-			}
-			await route.continue()
-		})
+		// Verify successful navigation
+		await expect(page).toHaveURL(/.*dashboard/)
 
-		// Step 2: Fill in credentials (Remember Me NOT checked)
-		await page.getByLabel('E-mail').fill(TEST_USER.email)
-		await page.getByTestId('input-password').fill(TEST_USER.password)
-
-		// Ensure checkbox is unchecked
-		await expect(page.getByTestId('remember-me-checkbox')).not.toBeChecked()
-
-		// Step 3: Submit login
-		await page.getByRole('button', { name: /entrar/i }).click()
-
-		// Step 4: Wait for navigation and verify request was made (longer timeout for rate limiting)
-		await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
-
-		// Step 5: Verify the request body contains remember_me: false
-		expect(loginRequestBody).not.toBeNull()
-		expect(loginRequestBody?.remember_me).toBe(false)
+		// Verify the request body contains remember_me: false
+		expect(requestBody).not.toBeNull()
+		expect(requestBody?.remember_me).toBe(false)
 	})
 })

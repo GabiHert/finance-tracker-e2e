@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   deleteAllTransactions,
   deleteAllCategories,
+  createCategory,
 } from '../fixtures/test-utils'
 
 /**
@@ -77,16 +78,24 @@ test.describe('BUG: Import Button Visibility for New Accounts', () => {
     await expect(importButton).toBeVisible({ timeout: 5000 })
     await expect(addButton).toBeVisible({ timeout: 5000 })
 
-    // If there's an empty state, it should also mention import option
+    // If there's an empty state, verify it's visible (import is in header now)
     const emptyState = page.getByTestId('empty-state')
     if (await emptyState.isVisible().catch(() => false)) {
-      // Empty state should have CTA for import
-      const importCTA = emptyState.getByText(/importar/i)
-      await expect(importCTA).toBeVisible()
+      // Empty state should mention import option in description
+      const importDescription = emptyState.getByText(/import/i)
+      await expect(importDescription).toBeVisible()
     }
   })
 
   test('BUG-004: Import button should remain visible after adding first manual transaction', async ({ page }) => {
+    // First create a category (required for transactions)
+    const testCategory = await createCategory(page, {
+      name: 'Test Category',
+      icon: 'tag',
+      color: '#3B82F6',
+      type: 'expense',
+    })
+
     await page.goto('/transactions')
     await page.waitForLoadState('networkidle')
 
@@ -102,6 +111,10 @@ test.describe('BUG: Import Button Visibility for New Accounts', () => {
     const modalBody = page.getByTestId('modal-body')
     await modalBody.getByTestId('transaction-description').fill('Test Transaction')
     await modalBody.getByTestId('transaction-amount').fill('100')
+
+    // Select category
+    await modalBody.getByTestId('transaction-category').click()
+    await page.getByRole('option', { name: testCategory.name }).click()
 
     // Save transaction
     await page.getByTestId('modal-save-btn').click()

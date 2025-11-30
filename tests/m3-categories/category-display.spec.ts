@@ -175,7 +175,9 @@ test.describe('BUG: Category Icon and Text Display Issues', () => {
     await expect(transactionRow).toBeVisible({ timeout: 10000 })
 
     // The category icon should be visible in the transaction row
-    const categoryIndicator = transactionRow.getByTestId('category-indicator')
+    // The frontend uses data-testid="category-icon" with emoji text icons
+    const categoryIndicator = transactionRow.getByTestId('category-icon')
+      .or(transactionRow.getByTestId('category-indicator'))
       .or(transactionRow.getByTestId('transaction-category-icon'))
       .or(transactionRow.locator('[data-testid*="category"]').locator('svg'))
       .or(transactionRow.locator('[data-testid*="category"]').locator('i[class*="fa-"]'))

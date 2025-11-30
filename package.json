@@ -15,6 +15,7 @@
     "reset-db": "./scripts/reset-db.sh",
     "wait": "./scripts/wait-for-services.sh",
     "test": "playwright test",
+    "test:clean": "npm run reset-db && npm run wait && npm test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",

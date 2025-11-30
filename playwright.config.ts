@@ -11,17 +11,19 @@ export default defineConfig({
   // Test directory
   testDir: './tests',
 
-  // Run tests in files in parallel
+  // Run tests in files sequentially (shared user data requires sequential execution within files)
+  // Different projects/files can still run in parallel via workers setting
   fullyParallel: false,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry failed tests to handle rate limiting flakiness
+  // Retry failed tests for occasional flakiness
   retries: process.env.CI ? 2 : 1,
 
-  // Limit workers for E2E to avoid database conflicts
-  workers: 1,
+  // Enable parallel workers for project-level parallelism
+  // Rate limiting is disabled in E2E mode, tests clean up data in beforeEach
+  workers: process.env.CI ? 2 : 2,
 
   // Reporter to use
   reporter: [
@@ -156,6 +158,16 @@ export default defineConfig({
     {
       name: 'm11-polish',
       testDir: './tests/m11-polish',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
+    // Error Scenarios tests - tests error handling and edge cases
+    {
+      name: 'error-scenarios',
+      testDir: './tests/error-scenarios',
       dependencies: ['auth-setup'],
       use: {
         ...devices['Desktop Chrome'],

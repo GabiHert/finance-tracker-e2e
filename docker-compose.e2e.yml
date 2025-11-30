@@ -92,6 +92,7 @@ services:
     restart: unless-stopped
     environment:
       - ENV=e2e
+      - E2E_MODE=true
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8081
       - DATABASE_URL=postgres://e2e_user:e2e_password@postgres-e2e:5432/finance_tracker_e2e?sslmode=disable

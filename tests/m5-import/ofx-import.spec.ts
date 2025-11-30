@@ -364,7 +364,7 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 					}
 
 					// Step 10: Verify new transaction in list (allow for same count if import deduplicated)
-					await page.waitForTimeout(500)
+					await page.waitForLoadState('networkidle')
 					const newCount = await page.getByTestId('transaction-row').count()
 					// Import may succeed but transaction might be deduplicated or filtered
 					expect(newCount).toBeGreaterThanOrEqual(initialCount)

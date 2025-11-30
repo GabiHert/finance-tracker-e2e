@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test'
+import {
+  deleteAllTransactions,
+  deleteAllCategories,
+  seedTestCategories,
+  seedTestTransactions,
+  TEST_CATEGORIES,
+  TestCategory,
+} from '../fixtures/test-utils'
 
 /**
  * M4-E2E: Transaction CRUD Operations
@@ -13,7 +21,60 @@ import { test, expect } from '@playwright/test'
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M4: Transaction CRUD Operations', () => {
-	test('M4-E2E-16a: Should complete full transaction creation flow', async ({ page }) => {
+  let seededCategories: TestCategory[] = []
+
+  test.beforeEach(async ({ page }) => {
+    // Navigate first to establish auth context
+    await page.goto('/transactions')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Clean up existing test data
+    await deleteAllTransactions(page)
+    await deleteAllCategories(page)
+
+    // Seed categories for transaction tests
+    seededCategories = await seedTestCategories(page, [
+      TEST_CATEGORIES.foodAndDining,
+      TEST_CATEGORIES.salary,
+      TEST_CATEGORIES.transportation,
+    ])
+
+    // Seed test transactions
+    const today = new Date().toISOString().split('T')[0]
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    await seedTestTransactions(page, [
+      {
+        date: today,
+        description: 'Grocery Shopping',
+        amount: 150.50,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.type === 'expense')?.id,
+      },
+      {
+        date: today,
+        description: 'Monthly Salary',
+        amount: 5000,
+        type: 'income',
+        categoryId: seededCategories.find(c => c.type === 'income')?.id,
+      },
+      {
+        date: yesterday,
+        description: 'Coffee Shop',
+        amount: 25.00,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.type === 'expense')?.id,
+      },
+      {
+        date: yesterday,
+        description: 'Uber Ride',
+        amount: 35.00,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.name === 'Transportation')?.id,
+      },
+    ])
+  })
+
+  test('M4-E2E-16a: Should complete full transaction creation flow', async ({ page }) => {
 		// Step 1: Navigate to transactions screen
 		await page.goto('/transactions')
 		await expect(page.getByTestId('transactions-header')).toBeVisible()
@@ -67,7 +128,7 @@ test.describe('M4: Transaction CRUD Operations', () => {
 
 		// Step 3: Hover and click edit button
 		await firstRow.hover()
-		await page.waitForTimeout(200)
+		await firstRow.getByTestId('transaction-edit-btn').waitFor({ state: 'visible' })
 		await firstRow.getByTestId('transaction-edit-btn').click({ force: true })
 
 		// Step 4: Verify edit modal opens with pre-populated data
@@ -107,7 +168,7 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		// Step 3: Hover over first transaction to show action buttons
 		const firstRow = page.getByTestId('transaction-row').first()
 		await firstRow.hover()
-		await page.waitForTimeout(200)
+		await firstRow.getByTestId('transaction-delete-btn').waitFor({ state: 'visible' })
 
 		// Step 4: Click delete button
 		await firstRow.getByTestId('transaction-delete-btn').click({ force: true })
@@ -138,7 +199,7 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		// Step 3: Hover and click delete on first transaction
 		const firstRow = page.getByTestId('transaction-row').first()
 		await firstRow.hover()
-		await page.waitForTimeout(200)
+		await firstRow.getByTestId('transaction-delete-btn').waitFor({ state: 'visible' })
 		await firstRow.getByTestId('transaction-delete-btn').click({ force: true })
 
 		// Step 4: Verify confirmation dialog appears
@@ -222,8 +283,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 			await endInput.fill(endDate)
 		}
 
-		// Step 5: Wait for filtering
-		await page.waitForTimeout(500)
+		// Step 5: Wait for filtering to complete
+		await page.waitForLoadState('networkidle')
 
 		// Step 6: Verify filtering applied (count may have changed)
 		const filteredCount = await page.getByTestId('transaction-row').count()
@@ -259,8 +320,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 				// Select second option (first non-"All" option)
 				await categoryOptions.nth(1).click()
 
-				// Step 4: Wait for filtering
-				await page.waitForTimeout(300)
+				// Step 4: Wait for filtering to complete
+				await page.waitForLoadState('networkidle')
 
 				// Verify filtering was applied (some transactions may be hidden)
 				expect(true).toBeTruthy()
@@ -361,8 +422,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		await page.getByTestId('modal-save-btn').click()
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 4: Wait for UI update
-		await page.waitForTimeout(500)
+		// Step 4: Wait for UI update after transaction save
+		await page.waitForLoadState('networkidle')
 
 		// Step 5: Check if summary updated (depends on backend persistence)
 		// Note: Mock implementation may not persist data, so summary may not change

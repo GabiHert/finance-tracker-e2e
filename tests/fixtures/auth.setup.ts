@@ -11,9 +11,6 @@ setup('authenticate', async ({ page }) => {
     console.log('Test user may already exist')
   }
 
-  // Wait a bit for rate limiting to clear
-  await page.waitForTimeout(2000)
-
   // Go to login page
   await page.goto('/login')
 

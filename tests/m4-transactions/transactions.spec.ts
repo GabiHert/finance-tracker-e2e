@@ -1,18 +1,74 @@
 import { test, expect } from '@playwright/test'
+import {
+  deleteAllTransactions,
+  deleteAllCategories,
+  seedTestCategories,
+  seedTestTransactions,
+  TEST_CATEGORIES,
+  TestCategory,
+} from '../fixtures/test-utils'
 
 /**
  * M4-E2E: Transaction Management
  * Validates the transactions UI including display, filtering, creation,
  * editing, and deletion of transactions.
  *
- * Note: The frontend transactions feature currently uses mock data
- * and is not fully integrated with the backend API yet.
- *
  * Authentication: These tests use saved auth state from auth.setup.ts
  * (configured via storageState in playwright.config.ts)
  */
 test.describe('M4: Transaction Management', () => {
-  // No login needed - auth state is pre-populated by auth-setup project
+  let seededCategories: TestCategory[] = []
+
+  test.beforeEach(async ({ page }) => {
+    // Navigate first to establish auth context
+    await page.goto('/transactions')
+    await page.waitForLoadState('domcontentloaded')
+
+    // Clean up existing test data
+    await deleteAllTransactions(page)
+    await deleteAllCategories(page)
+
+    // Seed categories for transaction tests
+    seededCategories = await seedTestCategories(page, [
+      TEST_CATEGORIES.foodAndDining,
+      TEST_CATEGORIES.salary,
+      TEST_CATEGORIES.transportation,
+    ])
+
+    // Seed test transactions
+    const today = new Date().toISOString().split('T')[0]
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    await seedTestTransactions(page, [
+      {
+        date: today,
+        description: 'Grocery Shopping',
+        amount: 150.50,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.type === 'expense')?.id,
+      },
+      {
+        date: today,
+        description: 'Monthly Salary',
+        amount: 5000,
+        type: 'income',
+        categoryId: seededCategories.find(c => c.type === 'income')?.id,
+      },
+      {
+        date: yesterday,
+        description: 'Coffee Shop',
+        amount: 25.00,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.type === 'expense')?.id,
+      },
+      {
+        date: yesterday,
+        description: 'Uber Ride',
+        amount: 35.00,
+        type: 'expense',
+        categoryId: seededCategories.find(c => c.name === 'Transportation')?.id,
+      },
+    ])
+  })
 
   test('M4-E2E-001: Should display transactions page with existing transactions', async ({ page }) => {
     await page.goto('/transactions')

@@ -24,9 +24,9 @@ test.describe('M2: Authentication - Logout', () => {
 		await page.close()
 	})
 
-	// Add delay between tests to avoid rate limiting (backend limits ~5 req/10s)
 	test.beforeEach(async ({ page }) => {
-		await page.waitForTimeout(4000)
+		// Navigate to login page for fresh state
+		await page.goto('/login')
 	})
 
 	test('M2-E2E-007: Should logout and redirect to login screen', async ({ page, context }) => {
@@ -75,9 +75,6 @@ test.describe('M2: Authentication - Logout', () => {
 
 		// Verify redirected to login
 		await expect(page).toHaveURL(/.*login/)
-
-		// Wait for rate limiting before attempting login again (longer wait for cooldown)
-		await page.waitForTimeout(8000)
 
 		// Login again using the helper with retry logic
 		await loginViaUI(page)

@@ -9,6 +9,14 @@ async function globalSetup(config: FullConfig) {
   console.log(`Frontend URL: ${baseURL}`)
   console.log(`API URL: ${apiURL}`)
 
+  // Validate test credentials are available
+  const testEmail = process.env.E2E_TEST_USER_EMAIL
+  const testPassword = process.env.E2E_TEST_USER_PASSWORD
+  if (!testEmail || !testPassword) {
+    console.warn('Warning: E2E_TEST_USER_EMAIL or E2E_TEST_USER_PASSWORD not set in environment.')
+    console.warn('Using default test credentials. Set these in .env.e2e for custom values.')
+  }
+
   // Wait for services to be ready
   console.log('Checking services...')
 

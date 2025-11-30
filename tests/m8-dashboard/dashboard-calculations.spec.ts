@@ -64,8 +64,8 @@ test.describe('M8: Dashboard Calculations', () => {
 			if (await lastMonthOption.isVisible()) {
 				await lastMonthOption.click()
 
-				// Step 4: Wait for data refresh
-				await page.waitForTimeout(500)
+				// Step 4: Wait for data refresh after period change
+				await page.waitForLoadState('networkidle')
 
 				// Step 5: Verify metrics are displayed
 				await expect(page.getByTestId('total-income').or(page.getByTestId('income-value'))).toBeVisible()
@@ -159,8 +159,8 @@ test.describe('M8: Dashboard Calculations', () => {
 			const transactionItem = recentTransactions.getByTestId('transaction-item').first()
 			if (await transactionItem.isVisible()) {
 				await transactionItem.click()
-				// Should navigate to transactions or open detail
-				await page.waitForTimeout(500)
+				// Wait for navigation or modal to appear
+				await page.waitForLoadState('networkidle')
 			}
 		}
 	})

@@ -236,7 +236,7 @@ test.describe('M7: Goal Alerts and Integration', () => {
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		await page.getByTestId('category-selector').click()
-		await page.waitForTimeout(300) // Wait for dropdown options to load
+		await page.getByRole('option').first().waitFor({ state: 'visible' })
 
 		// Step 4: Check if same category is disabled or shows error
 		const sameCategory = page.getByRole('option', { name: categoryName || '' })
@@ -263,8 +263,8 @@ test.describe('M7: Goal Alerts and Integration', () => {
 				await page.getByTestId('limit-amount-input').fill('1000')
 				await page.getByTestId('save-goal-btn').click()
 
-				// Wait a moment for error to appear
-				await page.waitForTimeout(500)
+				// Wait for error or modal state change
+				await page.waitForLoadState('networkidle')
 
 				// Should show error or prevent saving
 				const duplicateError = page.getByTestId('duplicate-category-error')

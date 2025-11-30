@@ -24,8 +24,6 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test.beforeEach(async ({ page }) => {
-		// Add delay between tests to avoid rate limiting (backend limits ~5 req/10s)
-		await page.waitForTimeout(3000)
 		await page.goto('/login')
 		await expect(page.getByLabel('E-mail')).toBeVisible()
 	})
@@ -63,9 +61,6 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05d: Should login successfully with Remember Me checked', async ({ page }) => {
-		// Extra delay to avoid rate limiting from previous tests
-		await page.waitForTimeout(5000)
-
 		// Step 1: Fill in credentials
 		await page.getByLabel('E-mail').fill(TEST_USER.email)
 		await page.getByTestId('input-password').fill(TEST_USER.password)
@@ -93,9 +88,6 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05e: Should login successfully without Remember Me checked', async ({ page }) => {
-		// Extra delay to avoid rate limiting from previous tests
-		await page.waitForTimeout(4000)
-
 		// Step 1: Fill in credentials
 		await page.getByLabel('E-mail').fill(TEST_USER.email)
 		await page.getByTestId('input-password').fill(TEST_USER.password)
@@ -121,9 +113,6 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05f: Should send remember_me flag in login request', async ({ page }) => {
-		// Extra delay to avoid rate limiting from previous tests
-		await page.waitForTimeout(5000)
-
 		// Use helper with retry logic and request capture
 		const { requestBody } = await loginViaUIWithRequestCapture(page, { rememberMe: true })
 
@@ -136,9 +125,6 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05g: Should send remember_me as false when unchecked', async ({ page }) => {
-		// Extra delay to avoid rate limiting from previous tests
-		await page.waitForTimeout(5000)
-
 		// Use helper with retry logic and request capture (remember me unchecked)
 		const { requestBody } = await loginViaUIWithRequestCapture(page, { rememberMe: false })
 

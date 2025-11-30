@@ -200,7 +200,7 @@ test.describe('M5: Custom Column Mapping', () => {
 
 		// Step 5: Verify file is still loaded (preview should still be visible)
 		// Note: The actual re-parsing behavior depends on implementation
-		await page.waitForTimeout(500)
+		await page.waitForLoadState('networkidle')
 	})
 
 	test('M5-E2E-06i: Should show success when all required fields are mapped', async ({ page }) => {

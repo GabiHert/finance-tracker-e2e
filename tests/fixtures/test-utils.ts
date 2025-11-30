@@ -5,11 +5,12 @@ export const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/
 
 /**
  * Test user credentials for E2E tests
- * Note: Password avoids special characters (like !) that can cause shell escaping issues
+ * Uses environment variables with fallbacks for flexibility
+ * Note: Default password avoids special characters (like !) that can cause shell escaping issues
  */
 export const TEST_USER = {
-  email: 'e2e-test@example.com',
-  password: 'E2eTestPassword1234',
+  email: process.env.E2E_TEST_USER_EMAIL || 'e2e-test@example.com',
+  password: process.env.E2E_TEST_USER_PASSWORD || 'E2eTestPassword1234',
   name: 'E2E Test User',
 }
 
@@ -52,17 +53,11 @@ export async function loginTestUser(page: Page): Promise<string> {
 }
 
 /**
- * Helper to login via UI with retry logic for flaky connections and rate limiting
- * Note: Backend has rate limiting (~5 requests/10s). For E2E tests, configure
- * Playwright retries: 1 in playwright.config.ts to handle rate limit flakiness.
+ * Helper to login via UI with retry logic for flaky connections
+ * Note: Rate limiting is disabled in E2E mode via E2E_MODE=true environment variable
  */
-export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
+export async function loginViaUI(page: Page, maxRetries = 2): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Longer wait between attempts for rate limiting (8s to ensure cooldown)
-    if (attempt > 1) {
-      await page.waitForTimeout(8000)
-    }
-
     await page.goto('/login')
 
     // Wait for form to be ready
@@ -92,13 +87,13 @@ export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
 
 /**
  * Helper to login via UI with request body capture for remember_me tests
- * Has retry logic to handle rate limiting
+ * Note: Rate limiting is disabled in E2E mode via E2E_MODE=true environment variable
  */
 export async function loginViaUIWithRequestCapture(
   page: Page,
   options: { rememberMe?: boolean; maxRetries?: number } = {}
 ): Promise<{ requestBody: Record<string, unknown> | null }> {
-  const { rememberMe = false, maxRetries = 3 } = options
+  const { rememberMe = false, maxRetries = 2 } = options
   let loginRequestBody: Record<string, unknown> | null = null
 
   // Set up request interception
@@ -114,10 +109,8 @@ export async function loginViaUIWithRequestCapture(
   })
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Wait between retries (longer wait for rate limiting cooldown)
+    // Reset to login page for retry if needed
     if (attempt > 1) {
-      await page.waitForTimeout(10000)
-      // Reset to login page for retry
       await page.goto('/login')
       await expect(page.getByLabel('E-mail')).toBeVisible()
     }
@@ -167,17 +160,35 @@ export async function loginViaUIWithRequestCapture(
 
 /**
  * Helper to reset test data via API
+ * Deletes all user data: transactions, categories, and other entities
  */
-export async function resetTestData(page: Page, token: string): Promise<void> {
-  // Delete all transactions
-  await page.request.delete(`${API_URL}/transactions`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export async function resetTestData(page: Page, token?: string): Promise<void> {
+  // Delete all data types (order matters - delete dependent data first)
+  try {
+    await deleteAllTransactions(page)
+  } catch (e) {
+    console.log('No transactions to delete or endpoint not available')
+  }
 
-  // Delete all categories (except defaults)
-  await page.request.delete(`${API_URL}/categories`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  try {
+    await deleteAllCategories(page)
+  } catch (e) {
+    console.log('No categories to delete or endpoint not available')
+  }
+}
+
+/**
+ * Helper to clean up all test data before/after tests
+ * More comprehensive than resetTestData - includes all entity types
+ */
+export async function cleanupAllTestData(page: Page): Promise<void> {
+  // Navigate to app first to establish auth context
+  await page.goto('/')
+  await page.waitForLoadState('domcontentloaded')
+
+  // Clean up in order (dependent data first)
+  try { await deleteAllTransactions(page) } catch (e) { /* ignore */ }
+  try { await deleteAllCategories(page) } catch (e) { /* ignore */ }
 }
 
 /**

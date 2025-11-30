@@ -43,6 +43,9 @@ test.describe('M10: Delete Account', () => {
 	})
 
 	test('M10-E2E-009: Should permanently delete account and prevent future login', async ({ page }) => {
+		// Add delay to avoid rate limiting from other tests
+		await page.waitForTimeout(5000)
+
 		// Step 1: Login with the test user
 		await page.goto('/login')
 		await expect(page.getByLabel('E-mail')).toBeVisible()
@@ -51,8 +54,8 @@ test.describe('M10: Delete Account', () => {
 		await page.getByTestId('input-password').fill(DELETE_TEST_USER.password)
 		await page.getByRole('button', { name: 'Entrar' }).click()
 
-		// Wait for dashboard or authenticated route
-		await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 })
+		// Wait for dashboard or authenticated route (longer timeout for rate limiting)
+		await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
 
 		// Step 2: Navigate to settings screen
 		await page.goto('/settings')

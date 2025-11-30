@@ -56,11 +56,11 @@ export async function loginTestUser(page: Page): Promise<string> {
  * Note: Backend has rate limiting (~5 requests/10s). For E2E tests, configure
  * Playwright retries: 1 in playwright.config.ts to handle rate limit flakiness.
  */
-export async function loginViaUI(page: Page, maxRetries = 2): Promise<void> {
+export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Brief wait between attempts for rate limiting
+    // Longer wait between attempts for rate limiting (8s to ensure cooldown)
     if (attempt > 1) {
-      await page.waitForTimeout(5000)
+      await page.waitForTimeout(8000)
     }
 
     await page.goto('/login')
@@ -74,11 +74,11 @@ export async function loginViaUI(page: Page, maxRetries = 2): Promise<void> {
 
     // Wait for either navigation to dashboard or error message
     try {
-      await expect(page).toHaveURL(/.*dashboard|.*\/$/i, { timeout: 10000 })
+      await expect(page).toHaveURL(/.*dashboard|.*\/$/i, { timeout: 15000 })
       return // Success!
     } catch (error) {
-      // Check if there's an error message on the page
-      const hasError = await page.getByText(/erro.*login/i).isVisible().catch(() => false)
+      // Check if there's an error message on the page (rate limit or auth error)
+      const hasError = await page.getByText(/erro|error|aguarde|wait|limite|limit/i).isVisible().catch(() => false)
 
       if (attempt === maxRetries) {
         throw new Error(

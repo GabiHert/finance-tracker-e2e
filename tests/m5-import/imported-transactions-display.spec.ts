@@ -95,16 +95,14 @@ test.describe('BUG: Imported Transactions Not Showing', () => {
 
     // CRITICAL: The imported transactions should now be visible in the list
     // This test will FAIL if the bug exists (imported transactions not showing)
+    // Use waiting assertions for each transaction text to ensure DOM is updated
+    await expect(page.getByText('Imported Transaction 1')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Imported Transaction 2')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Imported Transaction 3')).toBeVisible({ timeout: 10000 })
+
+    // Now verify count - at this point DOM is updated
     const transactionRows = page.getByTestId('transaction-row')
-    const rowCount = await transactionRows.count()
-
-    // Should have at least 3 transactions (the ones we imported)
-    expect(rowCount).toBeGreaterThanOrEqual(3)
-
-    // Verify specific imported transactions are visible
-    await expect(page.getByText('Imported Transaction 1')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Imported Transaction 2')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Imported Transaction 3')).toBeVisible({ timeout: 5000 })
+    await expect(transactionRows).toHaveCount(3, { timeout: 5000 })
   })
 
   test('BUG-006: Imported transactions should appear alongside manually created ones', async ({ page }) => {
@@ -209,8 +207,8 @@ test.describe('BUG: Imported Transactions Not Showing', () => {
     await page.waitForLoadState('networkidle')
 
     // Transaction count should have increased by 2
-    const finalRowCount = await page.getByTestId('transaction-row').count()
-    expect(finalRowCount).toBe(initialRowCount + 2)
+    // Use toHaveCount which waits for the assertion to be true
+    await expect(page.getByTestId('transaction-row')).toHaveCount(initialRowCount + 2, { timeout: 10000 })
   })
 
   test('BUG-008: Imported transactions should persist after page reload', async ({ page }) => {

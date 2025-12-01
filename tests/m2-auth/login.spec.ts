@@ -62,19 +62,15 @@ test.describe('M2: Authentication - Login', () => {
     // Login using helper with retry logic
     await loginViaUI(page)
 
-    // Verify cookies/storage contain auth token
-    const cookies = await context.cookies()
-    const hasAuthCookie = cookies.some(
-      (c) => c.name.includes('token') || c.name.includes('session')
-    )
+    // Get the specific auth token from localStorage
+    const authToken = await page.evaluate(() => localStorage.getItem('access_token'))
+    expect(authToken).toBeTruthy()
+    expect(authToken!.length).toBeGreaterThan(10) // Tokens are long strings
 
-    // Or check localStorage
-    const localStorage = await page.evaluate(() => {
-      return Object.keys(window.localStorage).filter(
-        (k) => k.includes('token') || k.includes('auth')
-      )
+    // Verify token works by making an authenticated API call
+    const response = await page.request.get('http://localhost:8081/api/v1/transactions', {
+      headers: { Authorization: `Bearer ${authToken}` }
     })
-
-    expect(hasAuthCookie || localStorage.length > 0).toBeTruthy()
+    expect(response.status()).toBe(200)
   })
 })

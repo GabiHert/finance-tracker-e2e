@@ -7,27 +7,34 @@ async function deleteAllGoals(page: Page): Promise<void> {
 	await page.goto('/goals')
 	await page.waitForLoadState('networkidle')
 
+	// Wait a bit longer to ensure page is fully loaded
+	await page.waitForTimeout(1000)
+
 	// Delete all existing goals
 	let goalCards = page.getByTestId('goal-card')
 	let count = await goalCards.count()
 
 	while (count > 0) {
 		const deleteBtn = goalCards.first().getByTestId('delete-goal-btn')
-		if (await deleteBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+		if (await deleteBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
 			await deleteBtn.click()
 
 			// Handle confirmation dialog if present
 			const confirmBtn = page.getByTestId('confirm-delete-btn').or(page.getByRole('button', { name: /confirm|delete|yes|sim/i }))
-			if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+			if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
 				await confirmBtn.click()
 			}
 
-			// Wait for goal to be removed
-			await page.waitForTimeout(500)
+			// Wait for goal to be removed and API to update
+			await page.waitForTimeout(800)
 		}
 		goalCards = page.getByTestId('goal-card')
 		count = await goalCards.count()
 	}
+
+	// Reload to ensure fresh state
+	await page.reload()
+	await page.waitForLoadState('networkidle')
 }
 
 /**
@@ -142,169 +149,163 @@ test.describe('M7: Goal Alerts and Integration', () => {
 	test('M7-E2E-14b: Should display over-limit alert on dashboard', async ({ page }) => {
 		// Step 1: Create a goal with a very low limit
 		await page.goto('/goals')
-		await page.getByTestId('new-goal-btn').click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		await expect(page.getByTestId('goals-screen')).toBeVisible()
 
-		await page.getByTestId('category-selector').click()
-		await page.waitForTimeout(500)
+		// Click new goal button - it must be visible
+		const newGoalBtn = page.getByTestId('new-goal-btn')
+		await expect(newGoalBtn).toBeVisible({ timeout: 5000 })
+		await newGoalBtn.click()
+
+		// Wait for dialog to open - it must be visible
+		const dialog = page.getByRole('dialog')
+		await expect(dialog).toBeVisible({ timeout: 3000 })
+
+		// Select category - must be visible and have options
+		const categorySelector = page.getByTestId('category-selector')
+		await expect(categorySelector).toBeVisible({ timeout: 2000 })
+		await categorySelector.click()
+
 		const categoryOption = page.getByRole('option').first()
-		if (await categoryOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-			await categoryOption.click()
-		} else {
-			await page.keyboard.press('Escape')
-			test.skip(true, 'No category options available')
-			return
-		}
-		await page.getByTestId('limit-amount-input').fill('10') // Very low limit
+		await expect(categoryOption).toBeVisible({ timeout: 2000 })
+		const categoryName = await categoryOption.textContent()
+		await categoryOption.click()
+
+		// Set low limit ($10) and save
+		await page.getByTestId('limit-amount-input').fill('10')
 		await page.getByTestId('save-goal-btn').click()
+
+		// Verify modal closes (goal was created)
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 2: Create transaction that exceeds the limit
+		// Step 2: Create an expense > $10 in that category to trigger over-limit
 		await page.goto('/transactions')
 		await page.getByTestId('add-transaction-btn').click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Over Limit Alert Test')
-		await modalBody.getByTestId('transaction-amount').fill('100')
+		await modalBody.getByTestId('transaction-description').fill('Over Limit Test Expense')
+		await modalBody.getByTestId('transaction-amount').fill('50') // $50 > $10 limit
 
+		// Select expense type
 		const typeSelect = modalBody.getByTestId('transaction-type')
 		if (await typeSelect.isVisible()) {
 			await typeSelect.click()
-			await page.waitForTimeout(500)
-			const expenseOpt = page.getByRole('option', { name: /expense|despesa/i })
-			if (await expenseOpt.isVisible({ timeout: 3000 }).catch(() => false)) {
-				await expenseOpt.click()
-			} else {
-				await page.keyboard.press('Escape')
-			}
+			await page.getByRole('option', { name: /expense|despesa/i }).click()
 		}
 
+		// Select the same category as the goal
 		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.waitForTimeout(500)
-			const catOpt = page.getByRole('option').first()
-			if (await catOpt.isVisible({ timeout: 3000 }).catch(() => false)) {
-				await catOpt.click()
+		await categorySelect.click()
+		if (categoryName) {
+			const matchingOption = page.getByRole('option', { name: new RegExp(categoryName, 'i') })
+			if (await matchingOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+				await matchingOption.click()
 			} else {
-				await page.keyboard.press('Escape')
+				await page.getByRole('option').first().click()
 			}
+		} else {
+			await page.getByRole('option').first().click()
 		}
 
 		await page.getByTestId('modal-save-btn').click()
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 3: Go to dashboard and check for alert
+		// Step 3: Go to dashboard and check for alert banner
 		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible({ timeout: 5000 })
 
-		// Step 4: Verify alerts banner is visible
-		const alertsBanner = page.getByTestId('alerts-banner')
-		const alertCard = page.getByTestId('over-limit-alert')
-
-		// Either banner or individual alert card should be visible
-		const hasAlerts = (await alertsBanner.isVisible()) || (await alertCard.isVisible())
-
-		if (hasAlerts) {
-			// Verify alert contains limit-related text
-			const alertText = page.locator('[data-testid="alerts-banner"], [data-testid="over-limit-alert"]').first()
-			await expect(alertText).toContainText(/limite|goal|excedido|over|meta/i)
-		}
+		// Verify goal alert banner is visible showing over-limit warning
+		const alertBanner = page.getByTestId('goal-alert-banner').or(page.getByTestId('alerts-banner'))
+		await expect(alertBanner).toBeVisible({ timeout: 5000 })
+		await expect(alertBanner).toContainText(/exceeded|excedido|limite|over|alert/i)
 	})
 
 	test('M7-E2E-14c: Should show warning when approaching limit (80%+)', async ({ page }) => {
-		// Step 1: Create a goal with limit of 100
+		// Step 1: Create a goal with limit of $100
 		await page.goto('/goals')
-		await page.getByTestId('new-goal-btn').click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		await expect(page.getByTestId('goals-screen')).toBeVisible()
 
-		await page.getByTestId('category-selector').click()
-		await page.waitForTimeout(500)
-		const categoryOption14c = page.getByRole('option').first()
-		if (await categoryOption14c.isVisible({ timeout: 3000 }).catch(() => false)) {
-			await categoryOption14c.click()
-		} else {
-			await page.keyboard.press('Escape')
-			test.skip(true, 'No category options available')
-			return
-		}
+		// Click new goal button - must be visible
+		const newGoalBtn = page.getByTestId('new-goal-btn')
+		await expect(newGoalBtn).toBeVisible({ timeout: 5000 })
+		await newGoalBtn.click()
+
+		// Wait for dialog - must be visible
+		const dialog = page.getByRole('dialog')
+		await expect(dialog).toBeVisible({ timeout: 3000 })
+
+		// Select category - must be visible
+		const categorySelector = page.getByTestId('category-selector')
+		await expect(categorySelector).toBeVisible({ timeout: 2000 })
+		await categorySelector.click()
+
+		const categoryOption = page.getByRole('option').first()
+		await expect(categoryOption).toBeVisible({ timeout: 2000 })
+		const categoryName = await categoryOption.textContent()
+		await categoryOption.click()
+
+		// Set limit to $100 and save
 		await page.getByTestId('limit-amount-input').fill('100')
 
 		// Enable alert if checkbox exists
 		const alertCheckbox = page.getByTestId('alert-checkbox')
-		if (await alertCheckbox.isVisible()) {
+		if (await alertCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
 			await alertCheckbox.check()
 		}
 
 		await page.getByTestId('save-goal-btn').click()
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 2: Create transaction to bring spending to 85%
+		// Step 2: Create an expense of $85 (85% of limit) to trigger warning
 		await page.goto('/transactions')
 		await page.getByTestId('add-transaction-btn').click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
 		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Approaching Limit Test')
-		await modalBody.getByTestId('transaction-amount').fill('85')
+		await modalBody.getByTestId('transaction-description').fill('Warning Test Expense')
+		await modalBody.getByTestId('transaction-amount').fill('85') // $85 = 85% of $100 limit
 
+		// Select expense type
 		const typeSelect = modalBody.getByTestId('transaction-type')
 		if (await typeSelect.isVisible()) {
 			await typeSelect.click()
-			await page.waitForTimeout(500)
-			const expenseOpt14c = page.getByRole('option', { name: /expense|despesa/i })
-			if (await expenseOpt14c.isVisible({ timeout: 3000 }).catch(() => false)) {
-				await expenseOpt14c.click()
-			} else {
-				await page.keyboard.press('Escape')
-			}
+			await page.getByRole('option', { name: /expense|despesa/i }).click()
 		}
 
+		// Select the same category as the goal
 		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.waitForTimeout(500)
-			const catOpt14c = page.getByRole('option').first()
-			if (await catOpt14c.isVisible({ timeout: 3000 }).catch(() => false)) {
-				await catOpt14c.click()
+		await categorySelect.click()
+		if (categoryName) {
+			const matchingOption = page.getByRole('option', { name: new RegExp(categoryName, 'i') })
+			if (await matchingOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+				await matchingOption.click()
 			} else {
-				await page.keyboard.press('Escape')
+				await page.getByRole('option').first().click()
 			}
+		} else {
+			await page.getByRole('option').first().click()
 		}
 
 		await page.getByTestId('modal-save-btn').click()
+		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 3: Check for approaching limit warning
-		const approachingWarning = page.getByTestId('approaching-limit-warning')
-		const warningToast = page.getByText(/aproximando|approaching|80%|próximo/i)
-
-		// Either element may be visible depending on implementation
-		if (await approachingWarning.isVisible()) {
-			await expect(approachingWarning).toBeVisible()
-		} else if (await warningToast.first().isVisible()) {
-			await expect(warningToast.first()).toBeVisible()
-		}
-
-		// Step 4: Go to goals and verify visual indicator
+		// Step 3: Go to goals and verify warning indicator is visible
 		await page.goto('/goals')
+		await expect(page.getByTestId('goals-screen')).toBeVisible()
+
 		const goalCard = page.getByTestId('goal-card').first()
+		await expect(goalCard).toBeVisible({ timeout: 3000 })
 
-		// Goal should show warning state (yellow/orange) for 80%+ but < 100%
+		// Verify warning indicator is visible (80%+ threshold)
+		const warningIndicator = goalCard.getByTestId('warning-indicator').or(goalCard.locator('.warning, .text-yellow-500, .text-amber-500'))
+		await expect(warningIndicator.first()).toBeVisible({ timeout: 3000 })
+
+		// Verify percentage shown is >= 80%
 		const progressPercent = goalCard.getByTestId('goal-progress-percent')
-		if (await progressPercent.isVisible()) {
-			const percentText = await progressPercent.textContent()
-			const percentValue = parseFloat(percentText?.replace(/[^0-9.]/g, '') || '0')
-
-			// Should be between 80% and 100%
-			if (percentValue >= 80 && percentValue < 100) {
-				// May have warning class
-				const hasWarningClass = await goalCard.evaluate((el) =>
-					el.className.includes('warning') || el.className.includes('approaching')
-				)
-				// This is optional - just verify progress is in warning range
-				expect(percentValue).toBeGreaterThanOrEqual(80)
-			}
-		}
+		await expect(progressPercent).toBeVisible()
+		const percentText = await progressPercent.textContent()
+		const percent = parseFloat(percentText?.replace('%', '') || '0')
+		expect(percent).toBeGreaterThanOrEqual(80)
 	})
 
 	test('M7-E2E-14d: Should prevent duplicate category goals', async ({ page }) => {

@@ -3,6 +3,7 @@ import {
   createCategory,
   deleteAllCategories,
   seedTestCategories,
+  fetchCategories,
   TEST_CATEGORIES,
   TestCategory,
 } from '../fixtures/test-utils'
@@ -59,13 +60,18 @@ test.describe('M3: Category CRUD Operations', () => {
 		// Step 8: Verify modal closes (save was successful)
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 9: Check if category was actually persisted (optional - depends on backend)
-		// Note: Current mock implementation may not persist data
-		const categoryVisible = await page.getByText(categoryName).isVisible().catch(() => false)
-		const newCount = await page.getByTestId('category-card').count()
+		// Step 9: Category MUST appear in list (not OR logic)
+		const createdCategory = page.getByTestId('category-card').filter({ hasText: categoryName })
+		await expect(createdCategory).toBeVisible()
 
-		// Verify at least one of: category visible OR count increased OR same count (mock behavior)
-		expect(categoryVisible || newCount >= initialCount).toBeTruthy()
+		// Step 10: Count MUST have increased by exactly 1
+		const newCount = await page.getByTestId('category-card').count()
+		expect(newCount).toBe(initialCount + 1)
+
+		// Step 11: API MUST have the category
+		const categories = await fetchCategories(page)
+		const found = categories.find(c => c.name === categoryName)
+		expect(found).toBeDefined()
 	})
 
 	test('M3-E2E-06b: Should complete full category edit flow', async ({ page }) => {
@@ -105,14 +111,18 @@ test.describe('M3: Category CRUD Operations', () => {
 		// Step 8: Verify modal closes (save was successful)
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 9: Check if category was updated (optional - depends on backend)
-		// Note: Current mock implementation may not persist data
-		const updatedVisible = await page.getByText(updatedName).isVisible().catch(() => false)
-		const originalStillThere = await page.getByText(originalName || '').isVisible().catch(() => false)
+		// Step 9: Verify new name appears in list
+		await expect(page.getByTestId('category-name').filter({ hasText: updatedName })).toBeVisible()
 
-		// Verify modal closed successfully - that's the key interaction
-		// Data persistence verification depends on backend implementation
-		expect(true).toBeTruthy() // Modal close is the pass condition
+		// Step 10: Verify old name no longer appears
+		if (originalName) {
+			await expect(page.getByTestId('category-name').filter({ hasText: originalName })).not.toBeVisible()
+		}
+
+		// Step 11: Verify API has updated category
+		const categories = await fetchCategories(page)
+		const updated = categories.find(c => c.name === updatedName)
+		expect(updated).toBeDefined()
 	})
 
 	test('M3-E2E-06c: Should validate category name minimum length', async ({ page }) => {
@@ -138,6 +148,9 @@ test.describe('M3: Category CRUD Operations', () => {
 	})
 
 	test('M3-E2E-06d: Should handle category name with many characters', async ({ page }) => {
+		// Define expected behavior: 51 chars should be rejected (max is 50)
+		const MAX_CATEGORY_NAME_LENGTH = 50
+
 		// Step 1: Navigate to categories screen
 		await page.goto('/categories')
 
@@ -145,27 +158,20 @@ test.describe('M3: Category CRUD Operations', () => {
 		await page.getByTestId('add-category-btn').click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
-		// Step 3: Enter name with 51 characters
+		// Step 3: Enter name with 51 characters (over the limit)
 		const longName = 'A'.repeat(51)
 		await page.getByTestId('category-name-input').fill(longName)
 
-		// Step 4: Check what the input accepted
-		const inputValue = await page.getByTestId('category-name-input').inputValue()
-
-		// Step 5: Verify input accepted the value (either truncated or full)
-		// Some implementations truncate, others accept long names
-		expect(inputValue.length).toBeGreaterThan(0)
-
-		// Step 6: Try to save - should either succeed or show validation
+		// Step 4: Try to save
 		await page.getByTestId('save-category-btn').click()
 
-		// Step 7: Check outcome - either modal closes (success) or error shown
-		const modalClosed = await page.getByRole('dialog').isHidden().catch(() => false)
-		const hasError = await page.getByTestId('name-error').isVisible().catch(() => false)
-		const hasAlert = await page.locator('[role="alert"]').isVisible().catch(() => false)
+		// Step 5: Modal should remain open (validation failed)
+		await expect(page.getByRole('dialog')).toBeVisible()
 
-		// Valid outcomes: modal closes (category created) or validation error shown
-		expect(modalClosed || hasError || hasAlert).toBeTruthy()
+		// Step 6: Error message should be shown for exceeding max length
+		const errorMessage = page.getByTestId('name-error').or(page.getByTestId('input-error-message'))
+		await expect(errorMessage.first()).toBeVisible()
+		await expect(errorMessage.first()).toContainText(/too long|muito longo|max|máximo|character|caractere/i)
 	})
 
 	test('M3-E2E-06e: Should apply combined search and type filter', async ({ page }) => {

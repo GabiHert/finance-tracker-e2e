@@ -69,6 +69,14 @@ test.describe('M8: Dashboard Transaction Integration', () => {
 			return parseFloat(normalized) || 0
 		}
 
+		// Known mock data values to detect
+		const MOCK_VALUES = {
+			income: 8500,
+			expenses: 6230,
+			balance: 15270.5,
+			savings: 2270,
+		}
+
 		// Step 1: Navigate to dashboard
 		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
@@ -101,16 +109,27 @@ test.describe('M8: Dashboard Transaction Integration', () => {
 		const savingsText = (await savingsCard.getByTestId('metric-value').textContent()) || ''
 		const savingsAmount = parseBrazilianCurrency(savingsText)
 
+		// CRITICAL: Detect mock data - these should NOT match mock values exactly
+		expect(incomeAmount).not.toBe(MOCK_VALUES.income)
+		expect(expensesAmount).not.toBe(MOCK_VALUES.expenses)
+		expect(savingsAmount).not.toBe(MOCK_VALUES.savings)
+
 		// Step 6: Verify savings = income - expenses (Economia = Receitas - Despesas)
-		// This is the correct formula for the dashboard
+		// Tightened tolerance from 10 to 0.01
 		const expectedSavings = incomeAmount - expensesAmount
-		expect(Math.abs(savingsAmount - expectedSavings)).toBeLessThan(10)
+		expect(Math.abs(savingsAmount - expectedSavings)).toBeLessThan(0.01)
 
-		// Step 7: Verify non-negative income
-		expect(incomeAmount).toBeGreaterThanOrEqual(0)
+		// Step 7: Verify against actual API data
+		const transactions = await fetchTransactions(page)
+		const actualIncome = transactions
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+		const actualExpenses = transactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
 
-		// Step 8: Verify non-negative expenses (absolute)
-		expect(expensesAmount).toBeGreaterThanOrEqual(0)
+		expect(incomeAmount).toBeCloseTo(actualIncome, 0)
+		expect(expensesAmount).toBeCloseTo(actualExpenses, 0)
 	})
 
 	test('M8-E2E-TXN-02: Should update dashboard when transaction is created', async ({ page }) => {

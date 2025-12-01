@@ -4,6 +4,7 @@ import {
   deleteAllCategories,
   seedTestCategories,
   seedTestTransactions,
+  fetchTransactions,
   TEST_CATEGORIES,
   TestCategory,
 } from '../fixtures/test-utils'
@@ -115,12 +116,19 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		// Step 9: Verify modal closes (save was successful)
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Step 10: Verify transaction was saved (if backend persists data)
-		// Note: Current mock implementation may not persist data
-		const newCount = await page.getByTestId('transaction-row').count()
+		// Step 10: Transaction MUST appear in list
+		const createdTransaction = page.getByTestId('transaction-row').filter({ hasText: description })
+		await expect(createdTransaction).toBeVisible()
 
-		// Modal closed successfully - that's the key interaction
-		expect(newCount >= initialCount).toBeTruthy()
+		// Step 11: Count MUST have increased by exactly 1
+		const newCount = await page.getByTestId('transaction-row').count()
+		expect(newCount).toBe(initialCount + 1)
+
+		// Step 12: API MUST have the transaction with correct values
+		const transactions = await fetchTransactions(page)
+		const found = transactions.find(t => t.description === description)
+		expect(found).toBeDefined()
+		expect(parseFloat(found!.amount)).toBe(150.50)
 	})
 
 	test('M4-E2E-16b: Should complete full transaction edit flow', async ({ page }) => {
@@ -159,8 +167,14 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		// Step 8: Verify modal closes (save was successful)
 		await expect(page.getByRole('dialog')).not.toBeVisible()
 
-		// Modal closed successfully - that's the key interaction
-		expect(true).toBeTruthy()
+		// Step 9: Verify edit persisted in UI
+		const editedRow = page.getByTestId('transaction-row').filter({ hasText: updatedDescription })
+		await expect(editedRow).toBeVisible()
+
+		// Step 10: Verify edit persisted to API
+		const transactions = await fetchTransactions(page)
+		const edited = transactions.find(t => t.description === updatedDescription)
+		expect(edited).toBeDefined()
 	})
 
 	test('M4-E2E-16c: Should delete single transaction with confirmation', async ({ page }) => {
@@ -275,7 +289,9 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		await page.goto('/transactions')
 		await expect(page.getByTestId('transactions-header')).toBeVisible()
 
-		// Step 2: Get initial count
+		// Step 2: Wait for transactions to load and get initial count
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		const initialCount = await page.getByTestId('transaction-row').count()
 
 		// Step 3: Set start date (first of current month)
@@ -408,15 +424,24 @@ test.describe('M4: Transaction CRUD Operations', () => {
 	})
 
 	test('M4-E2E-16j: Should update summary totals after transaction changes', async ({ page }) => {
+		// Helper to parse Brazilian currency
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
+
 		// Step 1: Navigate to transactions screen
 		await page.goto('/transactions')
 		await expect(page.getByTestId('transactions-header')).toBeVisible()
 
 		// Step 2: Get initial expense total
 		const expenseTotal = page.getByTestId('expense-total')
-		const initialExpense = await expenseTotal.textContent()
+		await expect(expenseTotal).toBeVisible()
+		const initialExpenseText = await expenseTotal.textContent()
+		const initialExpenseValue = parseAmount(initialExpenseText)
 
-		// Step 3: Create new expense transaction
+		// Step 3: Create new expense transaction of R$ 100
 		await page.getByTestId('add-transaction-btn').click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
@@ -435,12 +460,11 @@ test.describe('M4: Transaction CRUD Operations', () => {
 		// Step 4: Wait for UI update after transaction save
 		await page.waitForLoadState('networkidle')
 
-		// Step 5: Check if summary updated (depends on backend persistence)
-		// Note: Mock implementation may not persist data, so summary may not change
-		const newExpense = await expenseTotal.textContent()
+		// Step 5: Verify summary total increased by R$ 100
+		const newExpenseText = await expenseTotal.textContent()
+		const newExpenseValue = parseAmount(newExpenseText)
 
-		// Test passes if either summary updated OR it stayed same (mock behavior)
-		// The key interaction is that the transaction was successfully created
-		expect(true).toBeTruthy()
+		// The expense total should have increased by the transaction amount (100)
+		expect(newExpenseValue).toBe(initialExpenseValue + 100)
 	})
 })

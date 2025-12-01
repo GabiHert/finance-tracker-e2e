@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { fetchTransactions } from '../fixtures/test-utils'
 
 /**
  * M8-E2E: Dashboard & Analytics
@@ -44,91 +45,197 @@ test.describe('M8: Dashboard & Analytics', () => {
 	})
 
 	test('M8-E2E-002: Should display metric cards with correct values', async ({ page }) => {
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
+
+		// Known mock data values to detect
+		const MOCK_VALUES = {
+			income: 8500,
+			expenses: 6230,
+			balance: 15270.5,
+			savings: 2270,
+		}
+
 		await page.goto('/dashboard')
-
-		// Wait for dashboard to load
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
-		// Verify Income card
+		// Verify Income card and get value
 		const incomeCard = page.getByTestId('metric-card-income')
 		await expect(incomeCard).toBeVisible()
 		await expect(incomeCard.getByTestId('metric-label')).toContainText(/receitas/i)
-		await expect(incomeCard.getByTestId('metric-value')).toBeVisible()
+		const incomeText = await incomeCard.getByTestId('metric-value').textContent()
+		const income = parseAmount(incomeText)
 
-		// Verify Expenses card
+		// Verify Expenses card and get value
 		const expensesCard = page.getByTestId('metric-card-expenses')
 		await expect(expensesCard).toBeVisible()
 		await expect(expensesCard.getByTestId('metric-label')).toContainText(/despesas/i)
-		await expect(expensesCard.getByTestId('metric-value')).toBeVisible()
+		const expensesText = await expensesCard.getByTestId('metric-value').textContent()
+		const expenses = Math.abs(parseAmount(expensesText))
 
-		// Verify Balance card
+		// Verify Balance card and get value
 		const balanceCard = page.getByTestId('metric-card-balance')
 		await expect(balanceCard).toBeVisible()
 		await expect(balanceCard.getByTestId('metric-label')).toContainText(/saldo/i)
-		await expect(balanceCard.getByTestId('metric-value')).toBeVisible()
+		const balanceText = await balanceCard.getByTestId('metric-value').textContent()
+		const balance = parseAmount(balanceText)
 
-		// Verify Savings card
+		// Verify Savings card and get value
 		const savingsCard = page.getByTestId('metric-card-savings')
 		await expect(savingsCard).toBeVisible()
 		await expect(savingsCard.getByTestId('metric-label')).toContainText(/economia/i)
-		await expect(savingsCard.getByTestId('metric-value')).toBeVisible()
+		const savingsText = await savingsCard.getByTestId('metric-value').textContent()
+		const savings = parseAmount(savingsText)
+
+		// CRITICAL: Detect mock data - these should NOT match mock values exactly
+		expect(income).not.toBe(MOCK_VALUES.income)
+		expect(expenses).not.toBe(MOCK_VALUES.expenses)
+		expect(balance).not.toBe(MOCK_VALUES.balance)
+		expect(savings).not.toBe(MOCK_VALUES.savings)
+
+		// Verify savings calculation is correct (savings = income - expenses)
+		expect(savings).toBeCloseTo(income - expenses, 0)
+
+		// Verify against actual API data
+		const transactions = await fetchTransactions(page)
+		const calculatedIncome = transactions
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+		const calculatedExpenses = transactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+
+		expect(income).toBeCloseTo(calculatedIncome, 0)
+		expect(expenses).toBeCloseTo(calculatedExpenses, 0)
 	})
 
 	test('M8-E2E-003: Should change data when period is selected', async ({ page }) => {
-		await page.goto('/dashboard')
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
 
-		// Wait for dashboard to load
+		// Track API calls to verify data is being fetched
+		const apiCalls: string[] = []
+		page.on('request', request => {
+			if (request.url().includes('/api/v1/')) {
+				apiCalls.push(request.url())
+			}
+		})
+
+		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Find period selector
 		const periodSelector = page.getByTestId('period-selector')
 		await expect(periodSelector).toBeVisible()
 
-		// Get initial values from a metric card
-		const incomeValue = page.getByTestId('metric-card-income').getByTestId('metric-value')
-		const initialValue = await incomeValue.textContent()
+		// Capture initial values
+		const incomeCard = page.getByTestId('metric-card-income')
+		const expensesCard = page.getByTestId('metric-card-expenses')
+		const initialIncome = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+		const initialExpenses = parseAmount(await expensesCard.getByTestId('metric-value').textContent())
+
+		// Clear tracked API calls before period change
+		apiCalls.length = 0
 
 		// Click period selector and change to "last month"
 		await periodSelector.click()
+		const lastMonthOption = page.getByRole('option', { name: /mes passado|mês passado|last month/i })
+		await expect(lastMonthOption).toBeVisible()
+		await lastMonthOption.click()
 
-		// Select "Mês Passado" option
-		const lastMonthOption = page.getByRole('option', { name: /mês passado|last month/i })
-		if (await lastMonthOption.isVisible()) {
-			await lastMonthOption.click()
+		// Wait for data refresh
+		await page.waitForLoadState('networkidle')
 
-			// Wait for data to update (give some time for the value to potentially change)
-			await page.waitForTimeout(500)
+		// Get new values after period change
+		const newIncome = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+		const newExpenses = parseAmount(await expensesCard.getByTestId('metric-value').textContent())
 
-			// The dashboard should still be visible and functional
-			await expect(page.getByTestId('dashboard-screen')).toBeVisible()
-		}
+		// CRITICAL: Verify API was called with date parameters (not using cached/mock data)
+		const dashboardApiCalls = apiCalls.filter(url =>
+			url.includes('/dashboard') ||
+			url.includes('/transactions') ||
+			url.includes('/summary')
+		)
+		expect(dashboardApiCalls.length).toBeGreaterThan(0)
+
+		// Values should be different OR API confirms same data for both periods
+		// At minimum, verify that data was fetched and dashboard remained functional
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		// Log values for debugging (values may legitimately be same if no transactions in period)
+		console.log(`Period change: Income ${initialIncome} -> ${newIncome}, Expenses ${initialExpenses} -> ${newExpenses}`)
 	})
 
 	test('M8-E2E-004: Should display trend comparison on metric cards', async ({ page }) => {
-		await page.goto('/dashboard')
+		// Known mock trend values to detect
+		const MOCK_INCOME_CHANGE = 5.2
+		const MOCK_EXPENSES_CHANGE = -3.8
 
-		// Wait for dashboard to load
+		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Check for trend indicators on metric cards
-		const metricCards = page.getByTestId('metric-card')
-		const count = await metricCards.count()
+		const incomeCard = page.getByTestId('metric-card-income')
+		const expensesCard = page.getByTestId('metric-card-expenses')
 
-		for (let i = 0; i < count; i++) {
-			const card = metricCards.nth(i)
+		// Check income card trend
+		const incomeTrend = incomeCard.getByTestId('trend-indicator')
+		if (await incomeTrend.isVisible()) {
+			const trendText = await incomeTrend.textContent()
+			await expect(incomeTrend).toContainText(/%/)
 
-			// Look for trend indicator (percentage change)
-			const trendIndicator = card.getByTestId('trend-indicator')
+			// Parse trend percentage
+			const trendPercent = parseFloat(trendText?.replace(/[^-\d.,]/g, '').replace(',', '.') || '0')
 
-			if (await trendIndicator.isVisible()) {
-				// Verify trend shows percentage
-				await expect(trendIndicator).toContainText(/%/)
+			// CRITICAL: Detect mock trend value
+			expect(trendPercent).not.toBe(MOCK_INCOME_CHANGE)
 
-				// Verify trend has direction indicator (arrow or color)
-				const trendDirection = card.locator('[data-testid="trend-direction"]')
-				if (await trendDirection.isVisible()) {
-					await expect(trendDirection).toBeVisible()
-				}
+			// Verify trend direction indicator matches sign
+			const hasUpIndicator = await incomeCard.locator('.text-green-500, [class*="positive"], [class*="up"]').isVisible().catch(() => false)
+			const hasDownIndicator = await incomeCard.locator('.text-red-500, [class*="negative"], [class*="down"]').isVisible().catch(() => false)
+
+			if (trendPercent > 0) {
+				// Positive income trend should show green/up (good)
+				expect(hasUpIndicator || !hasDownIndicator).toBe(true)
+			} else if (trendPercent < 0) {
+				// Negative income trend should show red/down (bad)
+				expect(hasDownIndicator || !hasUpIndicator).toBe(true)
+			}
+		}
+
+		// Check expenses card trend
+		const expensesTrend = expensesCard.getByTestId('trend-indicator')
+		if (await expensesTrend.isVisible()) {
+			const trendText = await expensesTrend.textContent()
+			await expect(expensesTrend).toContainText(/%/)
+
+			// Parse trend percentage
+			const trendPercent = parseFloat(trendText?.replace(/[^-\d.,]/g, '').replace(',', '.') || '0')
+
+			// CRITICAL: Detect mock trend value
+			expect(trendPercent).not.toBe(MOCK_EXPENSES_CHANGE)
+
+			// For expenses: positive trend = bad (more spending), negative = good (less spending)
+			const hasUpIndicator = await expensesCard.locator('.text-red-500, [class*="negative"], [class*="bad"]').isVisible().catch(() => false)
+			const hasDownIndicator = await expensesCard.locator('.text-green-500, [class*="positive"], [class*="good"]').isVisible().catch(() => false)
+
+			if (trendPercent > 0) {
+				// More expenses = bad = should show red
+				expect(hasUpIndicator || !hasDownIndicator).toBe(true)
+			} else if (trendPercent < 0) {
+				// Less expenses = good = should show green
+				expect(hasDownIndicator || !hasUpIndicator).toBe(true)
 			}
 		}
 	})
@@ -143,20 +250,22 @@ test.describe('M8: Dashboard & Analytics', () => {
 		const donutChart = page.getByTestId('category-donut')
 		await expect(donutChart).toBeVisible()
 
-		// Verify chart has segments or empty state
-		const chartSegments = donutChart.locator('[data-testid="donut-segment"]')
-		const emptyState = donutChart.getByTestId('chart-empty-state')
+		// First check if user has transactions via API
+		const transactions = await fetchTransactions(page)
 
-		const hasSegments = (await chartSegments.count()) > 0
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
+		if (transactions.length > 0) {
+			// User has transactions - chart MUST have segments (not empty state)
+			const chartSegments = donutChart.locator('[data-testid="donut-segment"]')
+			await expect(chartSegments.first()).toBeVisible({ timeout: 5000 })
+			expect(await chartSegments.count()).toBeGreaterThan(0)
 
-		// Either segments or empty state should be visible
-		expect(hasSegments || hasEmptyState).toBeTruthy()
-
-		// If there are segments, verify legend exists
-		if (hasSegments) {
+			// Verify legend exists when there are segments
 			const legend = donutChart.getByTestId('chart-legend')
 			await expect(legend).toBeVisible()
+		} else {
+			// User has no transactions - empty state MUST be shown
+			const emptyState = donutChart.getByTestId('chart-empty-state')
+			await expect(emptyState).toBeVisible()
 		}
 	})
 
@@ -170,16 +279,22 @@ test.describe('M8: Dashboard & Analytics', () => {
 		const trendsChart = page.getByTestId('trends-chart')
 		await expect(trendsChart).toBeVisible()
 
-		// Verify chart has lines or empty state
-		const chartLines = trendsChart.locator('[data-testid="chart-line"]')
-		const chartArea = trendsChart.locator('svg, canvas, [data-testid="chart-container"]')
-		const emptyState = trendsChart.getByTestId('chart-empty-state')
+		// First check if user has transactions via API
+		const transactions = await fetchTransactions(page)
 
-		const hasChart = (await chartArea.count()) > 0 || (await chartLines.count()) > 0
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
+		if (transactions.length > 0) {
+			// User has transactions - chart MUST render with data
+			const trendLines = trendsChart.locator('path, line, [data-testid="trend-line"], [data-testid="chart-line"]')
+			const chartArea = trendsChart.locator('svg, canvas, [data-testid="chart-container"]')
 
-		// Either chart or empty state should be visible
-		expect(hasChart || hasEmptyState).toBeTruthy()
+			// Either trend lines or chart area must be visible
+			const hasContent = (await trendLines.count()) > 0 || (await chartArea.count()) > 0
+			expect(hasContent).toBeTruthy()
+		} else {
+			// User has no transactions - empty state MUST be shown
+			const emptyState = trendsChart.getByTestId('chart-empty-state')
+			await expect(emptyState).toBeVisible()
+		}
 	})
 
 	test('M8-E2E-007: Should display recent transactions section', async ({ page }) => {
@@ -323,10 +438,19 @@ test.describe('M8: Dashboard & Analytics', () => {
 	test('M8-E2E-013: Should display amount values in correct currency format', async ({
 		page,
 	}) => {
-		await page.goto('/dashboard')
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
 
-		// Wait for dashboard to load
+		// Known mock values to detect
+		const MOCK_VALUES = [15270.5, 8500, 6230, 2270]
+
+		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Get all metric values
 		const metricValues = page.locator('[data-testid="metric-value"]')
@@ -334,10 +458,101 @@ test.describe('M8: Dashboard & Analytics', () => {
 
 		for (let i = 0; i < count; i++) {
 			const value = await metricValues.nth(i).textContent()
-			// Should be formatted as currency (R$ X.XXX,XX or similar)
-			if (value) {
-				expect(value).toMatch(/R?\$?\s*[\d.,]+/)
-			}
+
+			// Must have proper Brazilian currency format (R$ X.XXX,XX)
+			expect(value).toMatch(/R\$\s*-?[\d.,]+/)
+
+			// Parse and verify it's a valid number
+			const amount = parseAmount(value)
+			expect(isNaN(amount)).toBe(false)
+
+			// CRITICAL: Verify it's not a known mock value
+			expect(MOCK_VALUES).not.toContain(amount)
 		}
+
+		// Additional check: verify values match API data
+		const transactions = await fetchTransactions(page)
+		const calculatedIncome = transactions
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+		const calculatedExpenses = transactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+
+		// At least one of the displayed values should match calculated values
+		const incomeCard = page.getByTestId('metric-card-income')
+		const displayedIncome = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+		expect(displayedIncome).toBeCloseTo(calculatedIncome, 0)
+	})
+
+	test('M8-E2E-MOCK: Should NOT display mock data values', async ({ page }) => {
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
+
+		// Known mock data values from frontend mock-data.ts
+		const MOCK_VALUES = {
+			totalBalance: 15270.5,
+			totalIncome: 8500,
+			totalExpenses: 6230,
+			netSavings: 2270,
+		}
+
+		// Known mock transaction descriptions
+		const MOCK_DESCRIPTIONS = ['Supermercado Extra', 'Uber', 'Aluguel', 'Salário Empresa', 'Netflix']
+
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
+
+		// Get displayed values
+		const balanceCard = page.getByTestId('metric-card-balance')
+		const incomeCard = page.getByTestId('metric-card-income')
+		const expensesCard = page.getByTestId('metric-card-expenses')
+		const savingsCard = page.getByTestId('metric-card-savings')
+
+		const balance = parseAmount(await balanceCard.getByTestId('metric-value').textContent())
+		const income = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+		const expenses = Math.abs(parseAmount(await expensesCard.getByTestId('metric-value').textContent()))
+		const savings = parseAmount(await savingsCard.getByTestId('metric-value').textContent())
+
+		// CRITICAL: FAIL if ANY value matches mock data exactly
+		expect(balance).not.toBe(MOCK_VALUES.totalBalance)
+		expect(income).not.toBe(MOCK_VALUES.totalIncome)
+		expect(expenses).not.toBe(MOCK_VALUES.totalExpenses)
+		expect(savings).not.toBe(MOCK_VALUES.netSavings)
+
+		// Also check recent transactions are not mock
+		const recentTransactions = page.getByTestId('recent-transactions')
+		if (await recentTransactions.isVisible()) {
+			const text = await recentTransactions.textContent()
+
+			// Count how many mock descriptions appear
+			let mockDescriptionCount = 0
+			for (const desc of MOCK_DESCRIPTIONS) {
+				if (text?.includes(desc)) {
+					mockDescriptionCount++
+				}
+			}
+
+			// If ALL mock descriptions appear, it's definitely mock data
+			// Allow up to 2 matches (could be coincidental real data)
+			expect(mockDescriptionCount).toBeLessThan(MOCK_DESCRIPTIONS.length - 1)
+		}
+
+		// Verify values match API data (not mock)
+		const transactions = await fetchTransactions(page)
+		const calculatedIncome = transactions
+			.filter(t => t.type === 'income')
+			.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+		const calculatedExpenses = transactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+
+		expect(income).toBeCloseTo(calculatedIncome, 0)
+		expect(expenses).toBeCloseTo(calculatedExpenses, 0)
 	})
 })

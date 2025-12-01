@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { fetchTransactions } from '../fixtures/test-utils'
 
 /**
  * M8-E2E: Dashboard Calculations and States
@@ -12,70 +13,129 @@ import { test, expect } from '@playwright/test'
  */
 test.describe('M8: Dashboard Calculations', () => {
 	test('M8-E2E-10a: Should display correct trend calculation', async ({ page }) => {
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
+
+		// Known mock trend values to detect
+		const MOCK_TRENDS = [5.2, -3.8, 12.5, -8.3]
+
 		// Step 1: Navigate to dashboard
 		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Step 2: Get expenses metric card
 		const expensesCard = page.getByTestId('metric-card-expenses').or(page.getByTestId('expenses-card'))
+		await expect(expensesCard).toBeVisible()
 
-		if (await expensesCard.isVisible()) {
-			// Step 3: Check for trend indicator
-			const trendIndicator = expensesCard.getByTestId('trend-indicator')
+		// Step 3: Check for trend indicator
+		const trendIndicator = expensesCard.getByTestId('trend-indicator')
 
-			if (await trendIndicator.isVisible()) {
-				const trendText = await trendIndicator.textContent()
+		if (await trendIndicator.isVisible()) {
+			const trendText = await trendIndicator.textContent()
 
-				// Step 4: Verify trend has percentage format
-				expect(trendText).toMatch(/-?\d+(\.\d+)?%/)
+			// Step 4: Verify trend has percentage format
+			expect(trendText).toMatch(/-?\d+([.,]\d+)?%/)
 
-				// Step 5: Verify trend direction indicator
-				const isPositive = trendText?.includes('+')
-				const directionIcon = expensesCard.getByTestId('trend-direction')
+			// Step 5: Parse and validate trend value
+			const trendPercent = parseFloat(trendText?.replace(/[^-\d.,]/g, '').replace(',', '.') || '0')
 
-				if (await directionIcon.isVisible()) {
-					const iconClass = await directionIcon.getAttribute('class')
-					// For expenses: positive trend (more spending) = bad (red)
-					// Negative trend (less spending) = good (green)
-					if (isPositive) {
-						expect(iconClass).toMatch(/red|danger|negative/)
-					} else {
-						expect(iconClass).toMatch(/green|success|positive/)
-					}
+			// CRITICAL: Verify trend is NOT a known mock value
+			expect(MOCK_TRENDS).not.toContain(trendPercent)
+
+			// Step 6: Verify trend direction indicator matches sign
+			const isPositive = trendPercent > 0
+			const directionIcon = expensesCard.getByTestId('trend-direction')
+
+			if (await directionIcon.isVisible()) {
+				const iconClass = await directionIcon.getAttribute('class')
+				// For expenses: positive trend (more spending) = bad (red)
+				// Negative trend (less spending) = good (green)
+				if (isPositive) {
+					expect(iconClass).toMatch(/red|danger|negative|up/)
+				} else if (trendPercent < 0) {
+					expect(iconClass).toMatch(/green|success|positive|down/)
 				}
 			}
 		}
+
+		// Step 7: Verify dashboard values match API data
+		const transactions = await fetchTransactions(page)
+		const calculatedExpenses = transactions
+			.filter(t => t.type === 'expense')
+			.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0)
+
+		const expensesValue = expensesCard.getByTestId('metric-value')
+		const displayedExpenses = Math.abs(parseAmount(await expensesValue.textContent()))
+		expect(displayedExpenses).toBeCloseTo(calculatedExpenses, 0)
 	})
 
 	test('M8-E2E-10b: Should display period comparison data', async ({ page }) => {
+		// Helper to parse Brazilian currency format
+		const parseAmount = (text: string | null) => {
+			if (!text) return 0
+			const cleaned = text.replace(/R\$\s*/g, '').replace(/\./g, '').replace(',', '.')
+			return parseFloat(cleaned) || 0
+		}
+
+		// Track API calls to verify period change triggers data fetch
+		const apiCalls: string[] = []
+		page.on('request', request => {
+			if (request.url().includes('/api/v1/')) {
+				apiCalls.push(request.url())
+			}
+		})
+
 		// Step 1: Navigate to dashboard
 		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
-		// Step 2: Check for period selector/display
+		// Step 2: Capture initial values
+		const incomeCard = page.getByTestId('metric-card-income')
+		const initialIncome = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+
+		// Step 3: Check for period selector
 		const periodSelector = page.getByTestId('period-selector')
-		const periodDisplay = page.getByTestId('current-period')
+		await expect(periodSelector).toBeVisible()
 
-		if (await periodSelector.isVisible()) {
-			// Step 3: Change period and verify data updates
-			await periodSelector.click()
-			const lastMonthOption = page.getByRole('option', { name: /último mês|last month/i })
+		// Clear API calls before period change
+		apiCalls.length = 0
 
-			if (await lastMonthOption.isVisible()) {
-				await lastMonthOption.click()
+		// Step 4: Change period and verify data updates
+		await periodSelector.click()
+		const lastMonthOption = page.getByRole('option', { name: /mes passado|mês passado|último mês|last month/i })
+		await expect(lastMonthOption).toBeVisible()
+		await lastMonthOption.click()
 
-				// Step 4: Wait for data refresh after period change
-				await page.waitForLoadState('networkidle')
+		// Step 5: Wait for data refresh after period change
+		await page.waitForLoadState('networkidle')
 
-				// Step 5: Verify metrics are displayed
-				await expect(page.getByTestId('total-income').or(page.getByTestId('income-value'))).toBeVisible()
-				await expect(page.getByTestId('total-expenses').or(page.getByTestId('expenses-value'))).toBeVisible()
-			}
-		} else if (await periodDisplay.isVisible()) {
-			// Just verify current period is displayed
-			const periodText = await periodDisplay.textContent()
-			expect(periodText).toMatch(/nov|novembro|november|2025/i)
+		// Step 6: Verify API was called (data was fetched, not cached/mock)
+		const dashboardApiCalls = apiCalls.filter(url =>
+			url.includes('/dashboard') ||
+			url.includes('/transactions') ||
+			url.includes('/summary')
+		)
+		expect(dashboardApiCalls.length).toBeGreaterThan(0)
+
+		// Step 7: Get new values and verify change
+		const newIncome = parseAmount(await incomeCard.getByTestId('metric-value').textContent())
+
+		// Step 8: Verify period label updated
+		const periodLabel = page.getByTestId('current-period-label').or(page.getByTestId('period-display'))
+		if (await periodLabel.isVisible()) {
+			const periodText = await periodLabel.textContent()
+			// Should show previous month or "last month" indicator
+			expect(periodText).toMatch(/outubro|october|mês passado|last month|anterior/i)
 		}
+
+		// Log values for debugging
+		console.log(`Period comparison: Initial income ${initialIncome}, New income ${newIncome}`)
 	})
 
 	test('M8-E2E-10c: Should show loading state during data fetch', async ({ page }) => {

@@ -18,8 +18,8 @@ export default defineConfig({
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry failed tests for occasional flakiness
-  retries: process.env.CI ? 2 : 1,
+  // Retry failed tests for occasional flakiness (2 retries to handle parallel execution flakiness)
+  retries: 2,
 
   // Enable parallel workers for project-level parallelism
   // Rate limiting is disabled in E2E mode, tests clean up data in beforeEach

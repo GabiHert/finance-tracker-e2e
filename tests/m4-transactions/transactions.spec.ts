@@ -171,16 +171,19 @@ test.describe('M4: Transaction Management', () => {
     await page.waitForLoadState('networkidle')
     await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 
+    // Wait for specific transactions to be visible with extended timeout
+    await expect(page.getByText('Grocery Shopping')).toBeVisible({ timeout: 10000 })
+
     // Get initial count
     const initialRows = await page.getByTestId('transaction-row').count()
     expect(initialRows).toBeGreaterThan(0)
 
-    // Search for a specific term (common in mock data)
+    // Search for a specific term (seeded data)
     const searchInput = page.getByTestId('filter-search')
     await searchInput.fill('Grocery')
 
-    // Wait for search to filter
-    await page.waitForTimeout(300)
+    // Wait for search filter to apply
+    await page.waitForTimeout(500)
 
     // Results should be filtered
     const filteredRows = await page.getByTestId('transaction-row').count()

@@ -78,6 +78,10 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 		await page.goto('/transactions')
 		await expect(page.getByTestId('transactions-header')).toBeVisible()
 
+		// Wait for transactions to load
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
+
 		// Step 2: Verify transactions exist
 		const transactionRows = page.getByTestId('transaction-row')
 		const rowCount = await transactionRows.count()
@@ -98,6 +102,10 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 		await page.goto('/transactions')
 		await expect(page.getByTestId('transactions-header')).toBeVisible()
 
+		// Wait for transactions to load
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
+
 		// Step 2: Select multiple transactions
 		const checkboxes = page.getByTestId('transaction-checkbox')
 		const checkboxCount = await checkboxes.count()
@@ -116,6 +124,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10c: Should show all bulk action buttons when transactions selected', async ({ page }) => {
 		// Step 1: Navigate and select transactions
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Verify bulk actions bar appears
@@ -131,6 +141,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10d: Should clear selection when clicking Clear button', async ({ page }) => {
 		// Step 1: Navigate and select transactions
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Verify bulk bar appears
@@ -168,6 +180,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10f: Should deselect all when clicking header checkbox again', async ({ page }) => {
 		// Step 1: Navigate and select all
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('select-all-transactions').click()
 
 		// Step 2: Verify bulk bar appears
@@ -183,6 +197,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10g: Change Category button should open bulk categorize modal', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Verify Change Category button is visible and enabled
@@ -228,6 +244,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10i: Bulk categorize modal should have category selector', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Open modal
@@ -244,6 +262,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10j: Should enable Apply button when category is selected', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Open modal
@@ -264,6 +284,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10k: Should close modal and clear selection when clicking Apply', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 		await expect(page.getByTestId('bulk-actions-bar')).toBeVisible()
 
@@ -288,6 +310,8 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 	test('M4-E2E-10l: Should close modal when clicking Cancel', async ({ page }) => {
 		// Step 1: Navigate and select transaction
 		await page.goto('/transactions')
+		await page.waitForLoadState('networkidle')
+		await expect(page.getByTestId('transaction-row').first()).toBeVisible({ timeout: 10000 })
 		await page.getByTestId('transaction-checkbox').first().click()
 
 		// Step 2: Open modal

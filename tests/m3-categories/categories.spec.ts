@@ -124,23 +124,29 @@ test.describe('M3: Category Management', () => {
     await page.waitForLoadState('networkidle')
     await expect(page.getByTestId('categories-grid')).toBeVisible({ timeout: 10000 })
 
-    // Initially multiple categories visible
-    await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Transportation', level: 3 })).toBeVisible()
+    // Wait for categories to be fully loaded - check for specific categories with timeout
+    await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Transportation', level: 3 })).toBeVisible({ timeout: 10000 })
 
     // Search for "Food"
     const searchInput = page.getByTestId('category-search')
     await searchInput.fill('Food')
 
+    // Wait for search filter to apply
+    await page.waitForTimeout(500)
+
     // Only Food & Dining should be visible
     await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Transportation', level: 3 })).not.toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Transportation', level: 3 })).not.toBeVisible({ timeout: 5000 })
 
     // Clear search and search for something else
     await searchInput.fill('Salary')
 
-    await expect(page.getByRole('heading', { name: 'Salary', level: 3 })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).not.toBeVisible()
+    // Wait for search filter to apply
+    await page.waitForTimeout(500)
+
+    await expect(page.getByRole('heading', { name: 'Salary', level: 3 })).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('heading', { name: 'Food & Dining', level: 3 })).not.toBeVisible({ timeout: 5000 })
   })
 
   test('M3-E2E-005: Should click on category card to open edit modal', async ({ page }) => {

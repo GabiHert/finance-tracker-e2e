@@ -27,7 +27,7 @@ After Phase 1, running E2E tests should FAIL because frontend still uses mock da
 | Task | Description | Feature | Status |
 |------|-------------|---------|--------|
 | TASK-003 | Dashboard API integration | Dashboard | ✅ Complete |
-| TASK-004 | Goals API integration | Goals | ⬜ Pending |
+| TASK-004 | Goals API integration | Goals | ✅ Complete |
 | TASK-005 | Groups API integration | Groups | ⬜ Pending |
 | TASK-006 | Settings API integration | Settings | ⬜ Not Created |
 | TASK-007 | Rules API integration | Rules | ⬜ Not Created |
@@ -99,7 +99,7 @@ cd e2e && npx playwright test --project=m3-categories --reporter=list
 - [x] No OR logic assertions that always pass
 - [x] All E2E tests verify actual data values
 - [x] Dashboard fetches real data from API
-- [ ] Goals fetches real data from API (TASK-004)
+- [x] Goals fetches real data from API (TASK-004)
 - [ ] Groups fetches real data from API (TASK-005)
 - [ ] Settings persists to API
 - [ ] Rules persists to API

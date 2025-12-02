@@ -69,9 +69,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     // M2 Authentication tests - test login/register flows directly (no saved auth)
+    // Run serially to avoid rate limiting issues with multiple concurrent login attempts
     {
       name: 'm2-auth',
       testDir: './tests/m2-auth',
+      fullyParallel: false,
       use: { ...devices['Desktop Chrome'] },
     },
     // M3 Category tests - requires authentication (depends on auth-setup)

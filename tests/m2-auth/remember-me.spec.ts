@@ -61,30 +61,67 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05d: Should login successfully with Remember Me checked', async ({ page }) => {
-		// Step 1: Fill in credentials
-		await page.getByLabel('E-mail').fill(TEST_USER.email)
-		await page.getByTestId('input-password').fill(TEST_USER.password)
+		const maxRetries = 3
 
-		// Step 2: Check Remember Me checkbox
-		const rememberMeCheckbox = page.getByTestId('remember-me-checkbox')
-		await rememberMeCheckbox.click()
-		await expect(rememberMeCheckbox).toBeChecked()
-
-		// Step 3: Submit login
-		await page.getByRole('button', { name: /entrar/i }).click()
-
-		// Step 4: Verify successful login (redirected to dashboard) - longer timeout for rate limiting
-		await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
-
-		// Step 5: Verify tokens are stored in localStorage
-		const tokens = await page.evaluate(() => {
-			return {
-				accessToken: localStorage.getItem('access_token'),
-				refreshToken: localStorage.getItem('refresh_token'),
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			// Add small delay between retry attempts to let backend state settle
+			if (attempt > 1) {
+				await page.waitForTimeout(1000)
+				await page.goto('/login')
+				await expect(page.getByLabel('E-mail')).toBeVisible()
 			}
-		})
-		expect(tokens.accessToken).not.toBeNull()
-		expect(tokens.refreshToken).not.toBeNull()
+
+			// Step 1: Fill in credentials
+			const emailField = page.getByLabel('E-mail')
+			const passwordField = page.getByTestId('input-password')
+
+			await emailField.clear()
+			await emailField.fill(TEST_USER.email)
+			await passwordField.clear()
+			await passwordField.fill(TEST_USER.password)
+
+			// Step 2: Check Remember Me checkbox
+			const rememberMeCheckbox = page.getByTestId('remember-me-checkbox')
+			const isChecked = await rememberMeCheckbox.isChecked()
+			if (!isChecked) {
+				await rememberMeCheckbox.click()
+			}
+			await expect(rememberMeCheckbox).toBeChecked()
+
+			// Step 3: Submit login
+			await page.getByRole('button', { name: /entrar/i }).click()
+
+			// Step 4: Wait for navigation or error
+			try {
+				await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
+
+				// Step 5: Verify tokens are stored in localStorage
+				const tokens = await page.evaluate(() => {
+					return {
+						accessToken: localStorage.getItem('access_token'),
+						refreshToken: localStorage.getItem('refresh_token'),
+					}
+				})
+				expect(tokens.accessToken).not.toBeNull()
+				expect(tokens.refreshToken).not.toBeNull()
+
+				// Success - exit loop
+				return
+			} catch (error) {
+				// Check if there's an error message on the page (rate limit or auth error)
+				const hasError = await page
+					.getByText(/erro|error|aguarde|wait|limite|limit/i)
+					.isVisible()
+					.catch(() => false)
+
+				if (attempt === maxRetries) {
+					throw new Error(
+						`Login failed after ${maxRetries} attempts. ` +
+							(hasError ? 'Backend returned error (may be rate limited).' : 'Navigation timeout.')
+					)
+				}
+			}
+		}
 	})
 
 	test('M2-E2E-05e: Should login successfully without Remember Me checked', async ({ page }) => {

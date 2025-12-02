@@ -1,21 +1,23 @@
 import { FullConfig } from '@playwright/test'
+import * as dotenv from 'dotenv'
+import * as path from 'path'
+import { fileURLToPath } from 'url'
 
 async function globalSetup(config: FullConfig) {
   console.log('\n=== E2E Global Setup ===')
+
+  // Load .env.e2e from the e2e directory (use absolute path to ensure it's found)
+  // For ES modules, we need to use import.meta.url to get the directory
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = path.dirname(__filename)
+  const envPath = path.resolve(__dirname, '../../.env.e2e')
+  dotenv.config({ path: envPath })
 
   const baseURL = config.projects[0].use.baseURL || 'http://localhost:3001'
   const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/api/v1'
 
   console.log(`Frontend URL: ${baseURL}`)
   console.log(`API URL: ${apiURL}`)
-
-  // Validate test credentials are available
-  const testEmail = process.env.E2E_TEST_USER_EMAIL
-  const testPassword = process.env.E2E_TEST_USER_PASSWORD
-  if (!testEmail || !testPassword) {
-    console.warn('Warning: E2E_TEST_USER_EMAIL or E2E_TEST_USER_PASSWORD not set in environment.')
-    console.warn('Using default test credentials. Set these in .env.e2e for custom values.')
-  }
 
   // Wait for services to be ready
   console.log('Checking services...')

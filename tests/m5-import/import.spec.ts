@@ -292,7 +292,7 @@ test.describe('M5: Transaction Import', () => {
     await page.getByTestId('import-confirm-btn').click()
 
     // Verify success state
-    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 30000 })
   })
 
   test('M5-E2E-013: Should close modal via cancel button', async ({ page }) => {

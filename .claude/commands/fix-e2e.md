@@ -19,7 +19,8 @@ Ensure ALL tests pass by running the e2e tests repeatedly until every single val
 
 ### ✅ REQUIRED ACTIONS
 
-1. **Run fresh tests**: Execute the E2E tests using npm run test:fresh
+1. **Always rebuild services before executing the test**: Before executing the test rebuild all services so we make sure we are executing the latest version of the code
+
 1. **Run the validation command**: Execute the E2E tests to check all tests
 1. **Analyze all failures**: Carefully read every error message and failure report
 1. **Fix all warnings**: Carefully read every warning message and failure report and fix until there are no warnings

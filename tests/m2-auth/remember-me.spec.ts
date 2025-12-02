@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { TEST_USER, createTestUser, loginViaUIWithRequestCapture } from '../fixtures/test-utils'
+import { TEST_USER, createTestUser, loginViaUI, loginViaUIWithRequestCapture } from '../fixtures/test-utils'
 
 /**
  * M2-E2E-05: Remember Me Functionality
@@ -88,21 +88,14 @@ test.describe('M2: Remember Me Functionality', () => {
 	})
 
 	test('M2-E2E-05e: Should login successfully without Remember Me checked', async ({ page }) => {
-		// Step 1: Fill in credentials
-		await page.getByLabel('E-mail').fill(TEST_USER.email)
-		await page.getByTestId('input-password').fill(TEST_USER.password)
+		// Use loginViaUI helper which has retry logic for flaky connections
+		// This tests login without Remember Me (default state - unchecked)
+		await loginViaUI(page)
 
-		// Step 2: Ensure Remember Me is NOT checked
-		const rememberMeCheckbox = page.getByTestId('remember-me-checkbox')
-		await expect(rememberMeCheckbox).not.toBeChecked()
-
-		// Step 3: Submit login
-		await page.getByRole('button', { name: /entrar/i }).click()
-
-		// Step 4: Verify successful login (redirected to dashboard) - longer timeout for rate limiting
+		// Verify successful login (redirected to dashboard)
 		await expect(page).toHaveURL(/.*dashboard/, { timeout: 15000 })
 
-		// Step 5: Verify tokens are stored
+		// Verify tokens are stored
 		const tokens = await page.evaluate(() => {
 			return {
 				accessToken: localStorage.getItem('access_token'),

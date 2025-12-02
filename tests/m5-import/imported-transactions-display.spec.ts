@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test'
 import {
-  deleteAllTransactions,
-  deleteAllCategories,
-  createTransaction,
+  seedIsolatedCategories,
+  seedIsolatedTransactions,
+  cleanupIsolatedTestData,
+  generateShortId,
+  isolatedName,
   fetchTransactions,
+  TEST_CATEGORIES,
 } from '../fixtures/test-utils'
 
 /**
@@ -19,234 +22,262 @@ import {
  * This test validates that imported transactions appear in the transaction list.
  */
 test.describe('BUG: Imported Transactions Not Showing', () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to establish auth context
-    await page.goto('/transactions')
-    await page.waitForLoadState('domcontentloaded')
-
-    // Clean up existing data
-    await deleteAllTransactions(page)
-    await deleteAllCategories(page)
-
-    // Reload to get fresh state
-    await page.reload()
-    await page.waitForLoadState('networkidle')
-  })
-
   test('BUG-005: Imported transactions should appear in transaction list', async ({ page }) => {
-    await page.goto('/transactions')
-    await page.waitForLoadState('networkidle')
+    const testId = generateShortId()
 
-    // Create CSV content with test transactions
-    const csvContent = `Data,Descrição,Valor
-2025-11-20,Imported Transaction 1,-150.50
-2025-11-19,Imported Transaction 2,-75.00
-2025-11-18,Imported Transaction 3,500.00`
+    try {
+      await page.goto('/transactions')
+      await page.waitForLoadState('networkidle')
 
-    // Open import modal
-    const importButton = page.getByTestId('import-transactions-btn')
+      // Use today's date for imports to ensure they show in default view
+      const today = new Date().toISOString().split('T')[0]
 
-    // If import button is not visible (due to Bug 1), skip this test with informative message
-    const isImportVisible = await importButton.isVisible().catch(() => false)
-    test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
+      // Create CSV content with isolated test data
+      const csvContent = `Data,Descrição,Valor
+${today},${isolatedName('Imported Transaction 1', testId)},-150.50
+${today},${isolatedName('Imported Transaction 2', testId)},-75.00
+${today},${isolatedName('Imported Transaction 3', testId)},500.00`
 
-    await importButton.click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+      // Open import modal
+      const importButton = page.getByTestId('import-transactions-btn')
 
-    // Upload CSV file
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles({
-      name: 'test-import.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent),
-    })
+      // If import button is not visible (due to Bug 1), skip this test with informative message
+      const isImportVisible = await importButton.isVisible().catch(() => false)
+      test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
-    // Wait for preview
-    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+      await importButton.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Verify all 3 transactions are in preview
-    const previewRows = page.getByTestId('import-preview-row')
-    await expect(previewRows).toHaveCount(3)
+      // Upload CSV file
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles({
+        name: 'test-import.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent),
+      })
 
-    // Proceed to step 2
-    await page.getByTestId('import-next-btn').click()
-    await expect(page.getByTestId('import-step-2')).toBeVisible()
+      // Wait for preview
+      await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
 
-    // Complete import
-    await page.getByTestId('import-confirm-btn').click()
+      // Verify all 3 transactions are in preview
+      const previewRows = page.getByTestId('import-preview-row')
+      await expect(previewRows).toHaveCount(3)
 
-    // Wait for success
-    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+      // Proceed to step 2
+      await page.getByTestId('import-next-btn').click()
+      await expect(page.getByTestId('import-step-2')).toBeVisible()
 
-    // Close modal (click done or close button)
-    const closeButton = page.getByTestId('import-done-btn').or(page.getByRole('button', { name: /fechar|close|ver/i }))
-    if (await closeButton.isVisible().catch(() => false)) {
-      await closeButton.click()
-    } else {
-      // Try clicking outside modal or pressing escape
-      await page.keyboard.press('Escape')
+      // Complete import
+      await page.getByTestId('import-confirm-btn').click()
+
+      // Wait for success
+      await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+
+      // Close modal (click done or close button)
+      const closeButton = page.getByTestId('import-done-btn').or(page.getByRole('button', { name: /fechar|close|ver/i }))
+      if (await closeButton.isVisible().catch(() => false)) {
+        await closeButton.click()
+      } else {
+        // Try clicking outside modal or pressing escape
+        await page.keyboard.press('Escape')
+      }
+
+      // Wait for modal to close
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
+
+      // Wait for page to refresh and show transactions
+      await page.waitForLoadState('networkidle')
+
+      // CRITICAL: The imported transactions should now be visible in the list
+      // This test will FAIL if the bug exists (imported transactions not showing)
+      // Use waiting assertions for each transaction text to ensure DOM is updated
+      await expect(page.getByText(isolatedName('Imported Transaction 1', testId))).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText(isolatedName('Imported Transaction 2', testId))).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText(isolatedName('Imported Transaction 3', testId))).toBeVisible({ timeout: 10000 })
+
+      // Verify via API that exactly 3 isolated transactions exist (parallel-safe)
+      const transactions = await fetchTransactions(page)
+      const isolatedTxns = transactions.filter(t => t.description.includes(`[${testId}]`))
+      expect(isolatedTxns.length).toBe(3)
+    } finally {
+      await cleanupIsolatedTestData(page, testId)
     }
-
-    // Wait for modal to close
-    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
-
-    // Wait for page to refresh and show transactions
-    await page.waitForLoadState('networkidle')
-
-    // CRITICAL: The imported transactions should now be visible in the list
-    // This test will FAIL if the bug exists (imported transactions not showing)
-    // Use waiting assertions for each transaction text to ensure DOM is updated
-    await expect(page.getByText('Imported Transaction 1')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Imported Transaction 2')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Imported Transaction 3')).toBeVisible({ timeout: 10000 })
-
-    // Now verify count - at this point DOM is updated
-    const transactionRows = page.getByTestId('transaction-row')
-    await expect(transactionRows).toHaveCount(3, { timeout: 5000 })
   })
 
   test('BUG-006: Imported transactions should appear alongside manually created ones', async ({ page }) => {
-    await page.goto('/transactions')
-    await page.waitForLoadState('networkidle')
+    const testId = generateShortId()
 
-    // First, create a manual transaction via API
-    const today = new Date().toISOString().split('T')[0]
-    await createTransaction(page, {
-      date: today,
-      description: 'Manual Transaction',
-      amount: 200,
-      type: 'expense',
-    })
+    try {
+      // Navigate first to ensure page context has localStorage access
+      await page.goto('/transactions')
+      await page.waitForLoadState('networkidle')
 
-    // Reload to see the manual transaction
-    await page.reload()
-    await page.waitForLoadState('networkidle')
+      // Now create an isolated category and manual transaction via API
+      const categories = await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
+      const today = new Date().toISOString().split('T')[0]
+      await seedIsolatedTransactions(page, testId, [
+        {
+          date: today,
+          description: 'Manual Transaction',
+          amount: 200,
+          type: 'expense',
+          categoryId: categories[0].id,
+        },
+      ])
 
-    // Verify manual transaction is visible
-    await expect(page.getByText('Manual Transaction')).toBeVisible({ timeout: 5000 })
+      // Reload to pick up the new data
+      await page.reload()
+      await page.waitForLoadState('networkidle')
 
-    // Now import additional transactions
-    const csvContent = `Data,Descrição,Valor
-2025-11-20,Imported After Manual,-100.00`
+      // Verify manual transaction is visible
+      await expect(page.getByText(isolatedName('Manual Transaction', testId))).toBeVisible({ timeout: 5000 })
 
-    // Open import modal
-    const importButton = page.getByTestId('import-transactions-btn')
-    const isImportVisible = await importButton.isVisible().catch(() => false)
-    test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
+      // Now import additional transactions (use today's date)
+      const csvContent = `Data,Descrição,Valor
+${today},${isolatedName('Imported After Manual', testId)},-100.00`
 
-    await importButton.click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+      // Open import modal
+      const importButton = page.getByTestId('import-transactions-btn')
+      const isImportVisible = await importButton.isVisible().catch(() => false)
+      test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
-    // Upload CSV
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles({
-      name: 'test-import.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent),
-    })
+      await importButton.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Wait for preview
-    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+      // Upload CSV
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles({
+        name: 'test-import.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent),
+      })
 
-    // Complete import flow
-    await page.getByTestId('import-next-btn').click()
-    await expect(page.getByTestId('import-step-2')).toBeVisible()
-    await page.getByTestId('import-confirm-btn').click()
-    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+      // Wait for preview
+      await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
 
-    // Close modal
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
+      // Complete import flow
+      await page.getByTestId('import-next-btn').click()
+      await expect(page.getByTestId('import-step-2')).toBeVisible()
+      await page.getByTestId('import-confirm-btn').click()
+      await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
 
-    // Wait for page refresh
-    await page.waitForLoadState('networkidle')
+      // Close modal
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
 
-    // BOTH manual and imported transactions should be visible
-    // This test will FAIL if imported transactions are not showing
-    await expect(page.getByText('Manual Transaction')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText('Imported After Manual')).toBeVisible({ timeout: 5000 })
+      // Wait for page refresh
+      await page.waitForLoadState('networkidle')
 
-    // Verify total count via API as well
-    const transactions = await fetchTransactions(page)
-    expect(transactions.length).toBeGreaterThanOrEqual(2)
+      // BOTH manual and imported transactions should be visible
+      // This test will FAIL if imported transactions are not showing
+      await expect(page.getByText(isolatedName('Manual Transaction', testId))).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(isolatedName('Imported After Manual', testId))).toBeVisible({ timeout: 5000 })
+
+      // Verify total count via API as well
+      const transactions = await fetchTransactions(page)
+      const isolatedTxns = transactions.filter(t => t.description.includes(`[${testId}]`))
+      expect(isolatedTxns.length).toBeGreaterThanOrEqual(2)
+    } finally {
+      await cleanupIsolatedTestData(page, testId)
+    }
   })
 
   test('BUG-007: Transaction count should update after import', async ({ page }) => {
-    await page.goto('/transactions')
-    await page.waitForLoadState('networkidle')
+    const testId = generateShortId()
 
-    // Get initial count (should be 0 or show empty state)
-    const initialRowCount = await page.getByTestId('transaction-row').count()
+    try {
+      await page.goto('/transactions')
+      await page.waitForLoadState('networkidle')
 
-    // Import transactions
-    const csvContent = `Data,Descrição,Valor
-2025-11-20,Count Test 1,-50.00
-2025-11-19,Count Test 2,-60.00`
+      // Use today's date for imports
+      const today = new Date().toISOString().split('T')[0]
 
-    const importButton = page.getByTestId('import-transactions-btn')
-    const isImportVisible = await importButton.isVisible().catch(() => false)
-    test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
+      // Import transactions
+      const csvContent = `Data,Descrição,Valor
+${today},${isolatedName('Count Test 1', testId)},-50.00
+${today},${isolatedName('Count Test 2', testId)},-60.00`
 
-    await importButton.click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+      const importButton = page.getByTestId('import-transactions-btn')
+      const isImportVisible = await importButton.isVisible().catch(() => false)
+      test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles({
-      name: 'test-import.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent),
-    })
+      await importButton.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
 
-    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
-    await page.getByTestId('import-next-btn').click()
-    await page.getByTestId('import-confirm-btn').click()
-    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles({
+        name: 'test-import.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent),
+      })
 
-    // Close and refresh
-    await page.keyboard.press('Escape')
-    await page.waitForLoadState('networkidle')
+      await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+      await page.getByTestId('import-next-btn').click()
+      await page.getByTestId('import-confirm-btn').click()
+      await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
 
-    // Transaction count should have increased by 2
-    // Use toHaveCount which waits for the assertion to be true
-    await expect(page.getByTestId('transaction-row')).toHaveCount(initialRowCount + 2, { timeout: 10000 })
+      // Close and refresh
+      await page.keyboard.press('Escape')
+      await page.waitForLoadState('networkidle')
+
+      // Verify both imported transactions are visible in the UI
+      await expect(page.getByText(isolatedName('Count Test 1', testId))).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText(isolatedName('Count Test 2', testId))).toBeVisible({ timeout: 10000 })
+
+      // Verify via API that exactly 2 isolated transactions exist (parallel-safe)
+      const transactions = await fetchTransactions(page)
+      const isolatedTxns = transactions.filter(t => t.description.includes(`[${testId}]`))
+      expect(isolatedTxns.length).toBe(2)
+    } finally {
+      await cleanupIsolatedTestData(page, testId)
+    }
   })
 
   test('BUG-008: Imported transactions should persist after page reload', async ({ page }) => {
-    await page.goto('/transactions')
-    await page.waitForLoadState('networkidle')
+    const testId = generateShortId()
 
-    // Import transactions
-    const csvContent = `Data,Descrição,Valor
-2025-11-20,Persistence Test,-99.99`
+    try {
+      await page.goto('/transactions')
+      await page.waitForLoadState('networkidle')
 
-    const importButton = page.getByTestId('import-transactions-btn')
-    const isImportVisible = await importButton.isVisible().catch(() => false)
-    test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
+      // Use today's date for imports
+      const today = new Date().toISOString().split('T')[0]
 
-    await importButton.click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+      // Import transactions
+      const csvContent = `Data,Descrição,Valor
+${today},${isolatedName('Persistence Test', testId)},-99.99`
 
-    const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles({
-      name: 'test-import.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent),
-    })
+      const importButton = page.getByTestId('import-transactions-btn')
+      const isImportVisible = await importButton.isVisible().catch(() => false)
+      test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
-    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
-    await page.getByTestId('import-next-btn').click()
-    await page.getByTestId('import-confirm-btn').click()
-    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+      await importButton.click()
+      await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Close modal
-    await page.keyboard.press('Escape')
+      const fileInput = page.locator('input[type="file"]')
+      await fileInput.setInputFiles({
+        name: 'test-import.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent),
+      })
 
-    // RELOAD THE PAGE - transactions should persist
-    await page.reload()
-    await page.waitForLoadState('networkidle')
+      await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+      await page.getByTestId('import-next-btn').click()
+      await page.getByTestId('import-confirm-btn').click()
+      await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
 
-    // Imported transaction should still be visible after reload
-    // This test will FAIL if imported transactions are not properly saved
-    await expect(page.getByText('Persistence Test')).toBeVisible({ timeout: 10000 })
+      // Close modal
+      await page.keyboard.press('Escape')
+
+      // RELOAD THE PAGE - transactions should persist
+      await page.reload()
+      await page.waitForLoadState('networkidle')
+
+      // Imported transaction should still be visible after reload
+      // This test will FAIL if imported transactions are not properly saved
+      await expect(page.getByText(isolatedName('Persistence Test', testId))).toBeVisible({ timeout: 10000 })
+    } finally {
+      await cleanupIsolatedTestData(page, testId)
+    }
   })
 })

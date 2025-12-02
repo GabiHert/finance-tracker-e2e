@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test'
+import { Page, expect, TestInfo } from '@playwright/test'
 
 // API URL for direct backend calls
 export const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/api/v1'
@@ -12,6 +12,43 @@ export const TEST_USER = {
   email: process.env.E2E_TEST_USER_EMAIL || 'e2e-test@example.com',
   password: process.env.E2E_TEST_USER_PASSWORD || 'E2eTestPassword1234',
   name: 'E2E Test User',
+}
+
+// ============================================
+// Test Isolation Helpers for Parallel Execution
+// ============================================
+
+/**
+ * Generates a unique test identifier for data isolation in parallel tests.
+ * Uses testInfo.testId + timestamp to ensure uniqueness across parallel runs.
+ */
+export function generateTestId(testInfo: TestInfo): string {
+  return `${testInfo.testId}-${Date.now()}`
+}
+
+/**
+ * Creates a short unique suffix for test data names.
+ * Useful when full testId is too long for display.
+ */
+export function generateShortId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`
+}
+
+/**
+ * Wraps a name with a unique test identifier for isolation.
+ * Example: "Food & Dining" -> "Food & Dining [abc123]"
+ */
+export function isolatedName(baseName: string, testId: string): string {
+  return `${baseName} [${testId}]`
+}
+
+/**
+ * Extracts the test ID from an isolated name.
+ * Example: "Food & Dining [abc123]" -> "abc123"
+ */
+export function extractTestId(isolatedName: string): string | null {
+  const match = isolatedName.match(/\[([^\]]+)\]$/)
+  return match ? match[1] : null
 }
 
 /**
@@ -56,15 +93,33 @@ export async function loginTestUser(page: Page): Promise<string> {
  * Helper to login via UI with retry logic for flaky connections
  * Note: Rate limiting is disabled in E2E mode via E2E_MODE=true environment variable
  */
-export async function loginViaUI(page: Page, maxRetries = 2): Promise<void> {
+export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // Add small delay between retry attempts to let backend state settle
+    if (attempt > 1) {
+      await page.waitForTimeout(1000)
+    }
+
     await page.goto('/login')
 
     // Wait for form to be ready
     await expect(page.getByLabel('E-mail')).toBeVisible()
 
-    await page.getByLabel('E-mail').fill(TEST_USER.email)
-    await page.getByTestId('input-password').fill(TEST_USER.password)
+    // Wait for any error messages to clear (from previous failed attempts)
+    const errorElement = page.getByText(/erro|error/i).first()
+    if (await errorElement.isVisible().catch(() => false)) {
+      await page.waitForTimeout(500)
+    }
+
+    // Clear and fill form fields
+    const emailField = page.getByLabel('E-mail')
+    const passwordField = page.getByTestId('input-password')
+
+    await emailField.clear()
+    await emailField.fill(TEST_USER.email)
+    await passwordField.clear()
+    await passwordField.fill(TEST_USER.password)
+
     await page.getByRole('button', { name: 'Entrar' }).click()
 
     // Wait for either navigation to dashboard or error message
@@ -93,7 +148,7 @@ export async function loginViaUIWithRequestCapture(
   page: Page,
   options: { rememberMe?: boolean; maxRetries?: number } = {}
 ): Promise<{ requestBody: Record<string, unknown> | null }> {
-  const { rememberMe = false, maxRetries = 2 } = options
+  const { rememberMe = false, maxRetries = 3 } = options
   let loginRequestBody: Record<string, unknown> | null = null
 
   // Set up request interception
@@ -109,15 +164,28 @@ export async function loginViaUIWithRequestCapture(
   })
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Reset to login page for retry if needed
+    // Add small delay between retry attempts to let backend state settle
     if (attempt > 1) {
-      await page.goto('/login')
-      await expect(page.getByLabel('E-mail')).toBeVisible()
+      await page.waitForTimeout(1000)
     }
 
-    // Fill in credentials
-    await page.getByLabel('E-mail').fill(TEST_USER.email)
-    await page.getByTestId('input-password').fill(TEST_USER.password)
+    await page.goto('/login')
+    await expect(page.getByLabel('E-mail')).toBeVisible()
+
+    // Wait for any error messages to clear (from previous failed attempts)
+    const errorElement = page.getByText(/erro|error/i).first()
+    if (await errorElement.isVisible().catch(() => false)) {
+      await page.waitForTimeout(500)
+    }
+
+    // Clear and fill credentials
+    const emailField = page.getByLabel('E-mail')
+    const passwordField = page.getByTestId('input-password')
+
+    await emailField.clear()
+    await emailField.fill(TEST_USER.email)
+    await passwordField.clear()
+    await passwordField.fill(TEST_USER.password)
 
     // Toggle remember me checkbox if needed
     const checkbox = page.getByTestId('remember-me-checkbox')
@@ -480,4 +548,370 @@ export async function seedTestTransactions(
   }
 
   return createdTransactions
+}
+
+// ============================================
+// Isolated Test Data Helpers (for parallel execution)
+// ============================================
+
+/**
+ * Creates categories with isolated names for parallel test execution.
+ * Each category name is suffixed with [testId] for unique identification.
+ * Handles 409 conflicts by finding and returning the existing category.
+ */
+export async function seedIsolatedCategories(
+  page: Page,
+  testId: string,
+  categories: Array<{ name: string; icon?: string; color?: string; type?: 'expense' | 'income' }> = Object.values(TEST_CATEGORIES)
+): Promise<TestCategory[]> {
+  const createdCategories: TestCategory[] = []
+
+  for (const cat of categories) {
+    const isolatedCategoryName = isolatedName(cat.name, testId)
+    try {
+      const created = await createCategory(page, {
+        ...cat,
+        name: isolatedCategoryName,
+      })
+      createdCategories.push(created)
+    } catch (error) {
+      // Handle 409 conflict - category already exists
+      const errorMessage = String(error)
+      if (errorMessage.includes('409') || errorMessage.includes('already exists')) {
+        // Find the existing category with this name
+        const existingCategories = await fetchCategories(page)
+        const existing = existingCategories.find(c => c.name === isolatedCategoryName)
+        if (existing) {
+          console.log(`Using existing isolated category: ${isolatedCategoryName}`)
+          createdCategories.push(existing)
+        } else {
+          console.log(`Could not find existing category ${isolatedCategoryName} after 409 conflict`)
+        }
+      } else {
+        console.log(`Could not create isolated category ${cat.name}: ${error}`)
+      }
+    }
+  }
+
+  return createdCategories
+}
+
+/**
+ * Creates transactions with isolated descriptions for parallel test execution.
+ * Each transaction description is suffixed with [testId] for unique identification.
+ */
+export async function seedIsolatedTransactions(
+  page: Page,
+  testId: string,
+  transactions: Array<{
+    date: string
+    description: string
+    amount: number
+    type: 'expense' | 'income'
+    categoryId?: string
+    notes?: string
+  }>
+): Promise<TestTransaction[]> {
+  const createdTransactions: TestTransaction[] = []
+
+  for (const txn of transactions) {
+    try {
+      const created = await createTransaction(page, {
+        ...txn,
+        description: isolatedName(txn.description, testId),
+      })
+      createdTransactions.push(created)
+    } catch (error) {
+      console.log(`Could not create isolated transaction ${txn.description}: ${error}`)
+    }
+  }
+
+  return createdTransactions
+}
+
+/**
+ * Deletes only categories that belong to a specific test (identified by testId in name).
+ * This allows parallel tests to clean up only their own data.
+ */
+export async function deleteIsolatedCategories(page: Page, testId: string): Promise<void> {
+  const categories = await fetchCategories(page)
+  const isolatedCategories = categories.filter(c => c.name.includes(`[${testId}]`))
+
+  for (const category of isolatedCategories) {
+    await deleteCategory(page, category.id)
+  }
+}
+
+/**
+ * Deletes only transactions that belong to a specific test (identified by testId in description).
+ * This allows parallel tests to clean up only their own data.
+ */
+export async function deleteIsolatedTransactions(page: Page, testId: string): Promise<void> {
+  const transactions = await fetchTransactions(page)
+  const isolatedTransactions = transactions.filter(t => t.description.includes(`[${testId}]`))
+
+  for (const transaction of isolatedTransactions) {
+    await deleteTransaction(page, transaction.id)
+  }
+}
+
+// ============================================
+// Goal API Helpers
+// ============================================
+
+/**
+ * Goal type definition
+ */
+export interface TestGoal {
+  id: string
+  user_id: string
+  category_id: string
+  limit_amount: number
+  current_amount: number
+  alert_on_exceed: boolean
+  period: string
+  start_date?: string
+  end_date?: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Helper to create a goal via API
+ */
+export async function createGoal(
+  page: Page,
+  goal: {
+    categoryId: string
+    limitAmount: number
+    alertOnExceed?: boolean
+    period?: 'monthly' | 'weekly' | 'yearly'
+  }
+): Promise<TestGoal> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.post(`${API_URL}/goals`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    data: {
+      category_id: goal.categoryId,
+      limit_amount: goal.limitAmount,
+      alert_on_exceed: goal.alertOnExceed ?? false,
+      period: goal.period || 'monthly',
+    },
+  })
+
+  if (!response.ok()) {
+    const error = await response.text()
+    throw new Error(`Failed to create goal: ${response.status()} - ${error}`)
+  }
+
+  return await response.json()
+}
+
+/**
+ * Helper to delete a goal via API
+ */
+export async function deleteGoal(page: Page, goalId: string): Promise<void> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.delete(`${API_URL}/goals/${goalId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok() && response.status() !== 404) {
+    throw new Error(`Failed to delete goal: ${response.status()}`)
+  }
+}
+
+/**
+ * Helper to fetch all goals via API
+ */
+export async function fetchGoals(page: Page): Promise<TestGoal[]> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.get(`${API_URL}/goals`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch goals: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.goals || []
+}
+
+/**
+ * Helper to delete all goals via API
+ */
+export async function deleteAllGoals(page: Page): Promise<void> {
+  const goals = await fetchGoals(page)
+  for (const goal of goals) {
+    await deleteGoal(page, goal.id)
+  }
+}
+
+/**
+ * Creates goals with isolated category names for parallel test execution.
+ * Categories must already exist with isolated names.
+ *
+ * NOTE: Goals are stored in localStorage, not the backend API yet.
+ * This function directly injects goals into localStorage for testing.
+ */
+export async function seedIsolatedGoals(
+  page: Page,
+  testId: string,
+  goals: Array<{
+    categoryName: string  // The base category name (without [testId])
+    limitAmount: number
+    alertOnExceed?: boolean
+    period?: 'monthly' | 'weekly' | 'yearly'
+  }>
+): Promise<TestGoal[]> {
+  const createdGoals: TestGoal[] = []
+
+  // Fetch all categories to find the isolated ones
+  const categories = await fetchCategories(page)
+
+  // Inject goals into localStorage
+  await page.evaluate(({testId, goalsSpec, categories}) => {
+    // Get existing goals from localStorage
+    const STORAGE_KEY = 'finance_tracker_goals'
+    let existingGoals: any[] = []
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        existingGoals = JSON.parse(stored)
+      }
+    } catch (e) {
+      console.error('Failed to load existing goals:', e)
+    }
+
+    // Create new goals
+    const newGoals = goalsSpec.map((spec: any) => {
+      const isolatedCategoryName = `${spec.categoryName} [${testId}]`
+      const category = categories.find((c: any) => c.name === isolatedCategoryName)
+
+      if (!category) {
+        console.log(`Could not find isolated category ${isolatedCategoryName} for goal`)
+        return null
+      }
+
+      const now = new Date().toISOString()
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const endOfMonth = new Date(startOfMonth)
+      endOfMonth.setMonth(endOfMonth.getMonth() + 1)
+      endOfMonth.setDate(0)
+      endOfMonth.setHours(23, 59, 59, 999)
+
+      return {
+        id: `goal-${testId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        categoryId: category.id,
+        categoryName: category.name,
+        categoryIcon: category.icon,
+        categoryColor: category.color,
+        limitAmount: spec.limitAmount,
+        currentAmount: 0,
+        alertOnExceed: spec.alertOnExceed ?? true,
+        period: spec.period || 'monthly',
+        startDate: startOfMonth.toISOString().split('T')[0],
+        endDate: endOfMonth.toISOString().split('T')[0],
+        createdAt: now,
+        updatedAt: now,
+      }
+    }).filter((g: any) => g !== null)
+
+    // Merge with existing goals
+    const allGoals = [...existingGoals, ...newGoals]
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allGoals))
+
+    return newGoals
+  }, { testId, goalsSpec: goals, categories })
+
+  // Convert to TestGoal format (approximately, since localStorage format is slightly different)
+  for (const goalSpec of goals) {
+    const isolatedCategoryName = isolatedName(goalSpec.categoryName, testId)
+    const category = categories.find(c => c.name === isolatedCategoryName)
+
+    if (category) {
+      createdGoals.push({
+        id: `goal-${testId}-${Date.now()}`,
+        user_id: '', // Not used in localStorage
+        category_id: category.id,
+        limit_amount: goalSpec.limitAmount,
+        current_amount: 0,
+        alert_on_exceed: goalSpec.alertOnExceed ?? true,
+        period: goalSpec.period || 'monthly',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    }
+  }
+
+  return createdGoals
+}
+
+/**
+ * Deletes only goals that belong to isolated categories (identified by testId in category name).
+ * This allows parallel tests to clean up only their own data.
+ *
+ * NOTE: Goals are stored in localStorage, so we clean up from there.
+ */
+export async function deleteIsolatedGoals(page: Page, testId: string): Promise<void> {
+  // Get isolated category IDs
+  const categories = await fetchCategories(page)
+  const isolatedCategoryIds = categories
+    .filter(c => c.name.includes(`[${testId}]`))
+    .map(c => c.id)
+
+  // Remove goals from localStorage that belong to isolated categories
+  await page.evaluate((categoryIds) => {
+    const STORAGE_KEY = 'finance_tracker_goals'
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const allGoals = JSON.parse(stored)
+        const filteredGoals = allGoals.filter((goal: any) =>
+          !categoryIds.includes(goal.categoryId)
+        )
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredGoals))
+      }
+    } catch (e) {
+      console.error('Failed to delete isolated goals from localStorage:', e)
+    }
+  }, isolatedCategoryIds)
+}
+
+/**
+ * Cleans up all test data created with a specific testId.
+ * Deletes goals first (they reference categories), then transactions, then categories.
+ */
+export async function cleanupIsolatedTestData(page: Page, testId: string): Promise<void> {
+  try {
+    await deleteIsolatedGoals(page, testId)
+  } catch (e) {
+    console.log(`Could not delete isolated goals for ${testId}: ${e}`)
+  }
+
+  try {
+    await deleteIsolatedTransactions(page, testId)
+  } catch (e) {
+    console.log(`Could not delete isolated transactions for ${testId}: ${e}`)
+  }
+
+  try {
+    await deleteIsolatedCategories(page, testId)
+  } catch (e) {
+    console.log(`Could not delete isolated categories for ${testId}: ${e}`)
+  }
 }

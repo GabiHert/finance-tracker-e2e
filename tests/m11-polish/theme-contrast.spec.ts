@@ -442,6 +442,10 @@ test.describe('M11: Theme Contrast - Dark Mode', () => {
 			const refreshBtn = page.getByTestId('refresh-btn')
 
 			if (await refreshBtn.isVisible()) {
+				// Wait for button to be enabled (not in loading state)
+				// Disabled buttons intentionally have lower opacity (0.4) which is correct UX
+				await expect(refreshBtn).toBeEnabled({ timeout: 10000 })
+
 				// The button should be visible - check it's not invisible
 				const opacity = await refreshBtn.evaluate(el => {
 					return window.getComputedStyle(el).opacity

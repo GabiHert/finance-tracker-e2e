@@ -11,19 +11,19 @@ export default defineConfig({
   // Test directory
   testDir: './tests',
 
-  // Run tests in files sequentially (shared user data requires sequential execution within files)
-  // Different projects/files can still run in parallel via workers setting
-  fullyParallel: false,
+  // Run tests in parallel - each test uses isolated data with unique testIds
+  fullyParallel: true,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry failed tests for occasional flakiness (2 retries to handle parallel execution flakiness)
-  retries: 2,
+  // Retry failed tests for occasional flakiness
+  retries: process.env.CI ? 2 : 1,
 
-  // Enable parallel workers for project-level parallelism
-  // Rate limiting is disabled in E2E mode, tests clean up data in beforeEach
-  workers: process.env.CI ? 2 : 2,
+  // Use multiple workers for parallel execution
+  // Local: Use most CPU cores (leaving headroom for frontend/backend services)
+  // CI environments may have fewer resources, so use fewer workers
+  workers: process.env.CI ? 4 : 12,
 
   // Reporter to use
   reporter: [

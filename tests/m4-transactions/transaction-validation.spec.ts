@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test'
 import {
-	deleteAllTransactions,
-	deleteAllCategories,
-	seedTestCategories,
+	seedIsolatedCategories,
+	cleanupIsolatedTestData,
+	generateShortId,
 	TEST_CATEGORIES,
-	TestCategory,
 } from '../fixtures/test-utils'
 
 /**
@@ -19,122 +18,42 @@ import {
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M4: Transaction Validation', () => {
-	let seededCategories: TestCategory[] = []
+	test('M4-VAL-001: Should reject empty amount', async ({ page }) => {
+		const testId = generateShortId()
 
-	test.beforeEach(async ({ page }) => {
-		// Navigate to transactions and set up test data
 		await page.goto('/transactions')
 		await page.waitForLoadState('domcontentloaded')
-		await deleteAllTransactions(page)
-		await deleteAllCategories(page)
 
 		// Seed a category for transaction tests
-		seededCategories = await seedTestCategories(page, [TEST_CATEGORIES.foodAndDining])
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		// Reload page to pick up seeded data and wait for it to be ready
 		await page.reload()
 		await page.waitForLoadState('networkidle')
 
-		// Wait for page to stabilize
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.waitFor({ state: 'visible', timeout: 10000 })
-	})
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
 
-	test('M4-VAL-001: Should reject empty amount', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+			// Step 2: Fill description but leave amount empty
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Test Transaction')
 
-		// Step 2: Fill description but leave amount empty
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Test Transaction')
-
-		// Step 3: Select category
-		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.getByRole('option').first().click()
-		}
-
-		// Step 4: Try to save without amount
-		await page.getByTestId('modal-save-btn').click()
-
-		// Step 5: Check for validation error or modal stays open
-		const amountError = page.getByTestId('amount-error').or(page.getByTestId('input-error-message'))
-		const errorText = page.getByText(/obrigatório|required|valor|amount/i)
-		const modalStillOpen = await page.getByRole('dialog').isVisible()
-
-		const hasValidation =
-			(await amountError.isVisible().catch(() => false)) ||
-			(await errorText.first().isVisible().catch(() => false)) ||
-			modalStillOpen
-
-		expect(hasValidation).toBeTruthy()
-	})
-
-	test('M4-VAL-002: Should reject zero amount', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
-
-		// Step 2: Fill form with zero amount
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Zero Amount Test')
-		await modalBody.getByTestId('transaction-amount').fill('0')
-
-		// Step 3: Select category
-		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.getByRole('option').first().click()
-		}
-
-		// Step 4: Try to save
-		await page.getByTestId('modal-save-btn').click()
-
-		// Step 5: Check for validation error or modal stays open
-		const amountError = page.getByTestId('amount-error')
-		const errorText = page.getByText(/zero|valor|maior|greater|inválido|invalid/i)
-		const modalStillOpen = await page.getByRole('dialog').isVisible()
-
-		const hasValidation =
-			(await amountError.isVisible().catch(() => false)) ||
-			(await errorText.first().isVisible().catch(() => false)) ||
-			modalStillOpen
-
-		expect(hasValidation).toBeTruthy()
-	})
-
-	test('M4-VAL-003: Should reject negative amount input', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
-
-		// Step 2: Try to enter negative amount
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Negative Amount Test')
-		const amountInput = modalBody.getByTestId('transaction-amount')
-		await amountInput.fill('-100')
-
-		// Step 3: Check immediate validation or value sanitization
-		const currentValue = await amountInput.inputValue()
-		const hasNegative = currentValue.includes('-')
-
-		if (hasNegative) {
-			// Negative value accepted - check for error on save
+			// Step 3: Select category
 			const categorySelect = modalBody.getByTestId('transaction-category')
 			if (await categorySelect.isVisible()) {
 				await categorySelect.click()
 				await page.getByRole('option').first().click()
 			}
 
+			// Step 4: Try to save without amount
 			await page.getByTestId('modal-save-btn').click()
 
-			const amountError = page.getByTestId('amount-error')
-			const errorText = page.getByText(/negativo|negative|inválido|invalid/i)
+			// Step 5: Check for validation error or modal stays open
+			const amountError = page.getByTestId('amount-error').or(page.getByTestId('input-error-message'))
+			const errorText = page.getByText(/obrigatório|required|valor|amount/i)
 			const modalStillOpen = await page.getByRole('dialog').isVisible()
 
 			const hasValidation =
@@ -143,176 +62,363 @@ test.describe('M4: Transaction Validation', () => {
 				modalStillOpen
 
 			expect(hasValidation).toBeTruthy()
-		} else {
-			// Input sanitized - negative sign removed
-			expect(true).toBeTruthy()
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
+		}
+	})
+
+	test('M4-VAL-002: Should reject zero amount', async ({ page }) => {
+		const testId = generateShortId()
+
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
+
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
+
+		await page.reload()
+		await page.waitForLoadState('networkidle')
+
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
+
+			// Step 2: Fill form with zero amount
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Zero Amount Test')
+			await modalBody.getByTestId('transaction-amount').fill('0')
+
+			// Step 3: Select category
+			const categorySelect = modalBody.getByTestId('transaction-category')
+			if (await categorySelect.isVisible()) {
+				await categorySelect.click()
+				await page.getByRole('option').first().click()
+			}
+
+			// Step 4: Try to save
+			await page.getByTestId('modal-save-btn').click()
+
+			// Step 5: Check for validation error or modal stays open
+			const amountError = page.getByTestId('amount-error')
+			const errorText = page.getByText(/zero|valor|maior|greater|inválido|invalid/i)
+			const modalStillOpen = await page.getByRole('dialog').isVisible()
+
+			const hasValidation =
+				(await amountError.isVisible().catch(() => false)) ||
+				(await errorText.first().isVisible().catch(() => false)) ||
+				modalStillOpen
+
+			expect(hasValidation).toBeTruthy()
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
+		}
+	})
+
+	test('M4-VAL-003: Should reject negative amount input', async ({ page }) => {
+		const testId = generateShortId()
+
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
+
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
+
+		await page.reload()
+		await page.waitForLoadState('networkidle')
+
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
+
+			// Step 2: Try to enter negative amount
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Negative Amount Test')
+			const amountInput = modalBody.getByTestId('transaction-amount')
+			await amountInput.fill('-100')
+
+			// Step 3: Check immediate validation or value sanitization
+			const currentValue = await amountInput.inputValue()
+			const hasNegative = currentValue.includes('-')
+
+			if (hasNegative) {
+				// Negative value accepted - check for error on save
+				const categorySelect = modalBody.getByTestId('transaction-category')
+				if (await categorySelect.isVisible()) {
+					await categorySelect.click()
+					await page.getByRole('option').first().click()
+				}
+
+				await page.getByTestId('modal-save-btn').click()
+
+				const amountError = page.getByTestId('amount-error')
+				const errorText = page.getByText(/negativo|negative|inválido|invalid/i)
+				const modalStillOpen = await page.getByRole('dialog').isVisible()
+
+				const hasValidation =
+					(await amountError.isVisible().catch(() => false)) ||
+					(await errorText.first().isVisible().catch(() => false)) ||
+					modalStillOpen
+
+				expect(hasValidation).toBeTruthy()
+			} else {
+				// Input sanitized - negative sign removed
+				expect(true).toBeTruthy()
+			}
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
 		}
 	})
 
 	test('M4-VAL-004: Should handle extremely large amounts', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		const testId = generateShortId()
 
-		// Step 2: Enter very large amount
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Large Amount Test')
-		const amountInput = modalBody.getByTestId('transaction-amount')
-		await amountInput.fill('999999999999999')
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
 
-		// Step 3: Check if input was truncated or sanitized
-		const currentValue = await amountInput.inputValue()
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		// Step 4: Select category
-		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.getByRole('option').first().click()
-		}
-
-		// Step 5: Try to save
-		await page.getByTestId('modal-save-btn').click()
-
-		// Step 6: Wait for response
+		await page.reload()
 		await page.waitForLoadState('networkidle')
 
-		// Step 7: App may handle large amounts in various ways:
-		// - Show error
-		// - Truncate input
-		// - Accept large amounts
-		// - Close modal (success)
-		// All are valid behaviors - the key is the app doesn't crash
-		const modalStillOpen = await page.getByRole('dialog').isVisible()
-		const pageNotCrashed = await page.locator('body').isVisible()
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
 
-		// Test passes as long as page doesn't crash
-		expect(pageNotCrashed).toBeTruthy()
+			// Step 2: Enter very large amount
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Large Amount Test')
+			const amountInput = modalBody.getByTestId('transaction-amount')
+			await amountInput.fill('999999999999999')
+
+			// Step 3: Check if input was truncated or sanitized
+			const currentValue = await amountInput.inputValue()
+
+			// Step 4: Select category
+			const categorySelect = modalBody.getByTestId('transaction-category')
+			if (await categorySelect.isVisible()) {
+				await categorySelect.click()
+				await page.getByRole('option').first().click()
+			}
+
+			// Step 5: Try to save
+			await page.getByTestId('modal-save-btn').click()
+
+			// Step 6: Wait for response
+			await page.waitForLoadState('networkidle')
+
+			// Step 7: App may handle large amounts in various ways:
+			// - Show error
+			// - Truncate input
+			// - Accept large amounts
+			// - Close modal (success)
+			// All are valid behaviors - the key is the app doesn't crash
+			const modalStillOpen = await page.getByRole('dialog').isVisible()
+			const pageNotCrashed = await page.locator('body').isVisible()
+
+			// Test passes as long as page doesn't crash
+			expect(pageNotCrashed).toBeTruthy()
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
+		}
 	})
 
 	test('M4-VAL-005: Should reject description exceeding max length', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		const testId = generateShortId()
 
-		// Step 2: Enter very long description (1001 characters)
-		const longDescription = 'A'.repeat(1001)
-		const modalBody = page.getByTestId('modal-body')
-		const descriptionInput = modalBody.getByTestId('transaction-description')
-		await descriptionInput.fill(longDescription)
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
 
-		// Step 3: Fill other required fields
-		await modalBody.getByTestId('transaction-amount').fill('100')
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.getByRole('option').first().click()
+		await page.reload()
+		await page.waitForLoadState('networkidle')
+
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
+
+			// Step 2: Enter very long description (1001 characters)
+			const longDescription = 'A'.repeat(1001)
+			const modalBody = page.getByTestId('modal-body')
+			const descriptionInput = modalBody.getByTestId('transaction-description')
+			await descriptionInput.fill(longDescription)
+
+			// Step 3: Fill other required fields
+			await modalBody.getByTestId('transaction-amount').fill('100')
+
+			const categorySelect = modalBody.getByTestId('transaction-category')
+			if (await categorySelect.isVisible()) {
+				await categorySelect.click()
+				await page.getByRole('option').first().click()
+			}
+
+			// Step 4: Try to save
+			await page.getByTestId('modal-save-btn').click()
+
+			// Step 5: Check for error or truncation
+			const descriptionError = page.getByTestId('description-error')
+			const errorText = page.getByText(/máximo|maximum|longo|long|limite|limit|caractere|character/i)
+			const currentValue = await descriptionInput.inputValue()
+			const modalStillOpen = await page.getByRole('dialog').isVisible()
+
+			// Either error shown, input truncated, or modal stays open
+			const hasValidation =
+				(await descriptionError.isVisible().catch(() => false)) ||
+				(await errorText.first().isVisible().catch(() => false)) ||
+				currentValue.length < 1001 ||
+				modalStillOpen
+
+			expect(hasValidation).toBeTruthy()
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
 		}
-
-		// Step 4: Try to save
-		await page.getByTestId('modal-save-btn').click()
-
-		// Step 5: Check for error or truncation
-		const descriptionError = page.getByTestId('description-error')
-		const errorText = page.getByText(/máximo|maximum|longo|long|limite|limit|caractere|character/i)
-		const currentValue = await descriptionInput.inputValue()
-		const modalStillOpen = await page.getByRole('dialog').isVisible()
-
-		// Either error shown, input truncated, or modal stays open
-		const hasValidation =
-			(await descriptionError.isVisible().catch(() => false)) ||
-			(await errorText.first().isVisible().catch(() => false)) ||
-			currentValue.length < 1001 ||
-			modalStillOpen
-
-		expect(hasValidation).toBeTruthy()
 	})
 
 	test('M4-VAL-006: Should require category selection', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		const testId = generateShortId()
 
-		// Step 2: Fill form without selecting category
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('No Category Test')
-		await modalBody.getByTestId('transaction-amount').fill('100')
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
 
-		// Step 3: Try to save without category
-		await page.getByTestId('modal-save-btn').click()
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		// Step 4: Check for validation error or modal stays open
-		const categoryError = page.getByTestId('category-error')
-		const errorText = page.getByText(/categoria|category|selecione|select/i)
-		const modalStillOpen = await page.getByRole('dialog').isVisible()
+		await page.reload()
+		await page.waitForLoadState('networkidle')
 
-		const hasValidation =
-			(await categoryError.isVisible().catch(() => false)) ||
-			(await errorText.first().isVisible().catch(() => false)) ||
-			modalStillOpen
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
 
-		expect(hasValidation).toBeTruthy()
+			// Step 2: Fill form without selecting category
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('No Category Test')
+			await modalBody.getByTestId('transaction-amount').fill('100')
+
+			// Step 3: Try to save without category
+			await page.getByTestId('modal-save-btn').click()
+
+			// Step 4: Check for validation error or modal stays open
+			const categoryError = page.getByTestId('category-error')
+			const errorText = page.getByText(/categoria|category|selecione|select/i)
+			const modalStillOpen = await page.getByRole('dialog').isVisible()
+
+			const hasValidation =
+				(await categoryError.isVisible().catch(() => false)) ||
+				(await errorText.first().isVisible().catch(() => false)) ||
+				modalStillOpen
+
+			expect(hasValidation).toBeTruthy()
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
+		}
 	})
 
 	test('M4-VAL-007: Should cancel transaction creation without saving', async ({ page }) => {
-		// Step 1: Get initial count
-		const initialCount = await page.getByTestId('transaction-row').count()
+		const testId = generateShortId()
 
-		// Step 2: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
 
-		// Step 3: Fill form
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Should Not Be Saved')
-		await modalBody.getByTestId('transaction-amount').fill('999')
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		// Step 4: Cancel instead of save
-		const cancelBtn = page.getByTestId('modal-cancel-btn').or(page.getByRole('button', { name: /cancel|cancelar/i }))
-		await cancelBtn.click()
+		await page.reload()
+		await page.waitForLoadState('networkidle')
 
-		// Step 5: Verify modal closed
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		try {
+			// Step 1: Get initial count
+			const initialCount = await page.getByTestId('transaction-row').count()
 
-		// Step 6: Verify transaction was not created
-		const newCount = await page.getByTestId('transaction-row').count()
-		expect(newCount).toBe(initialCount)
+			// Step 2: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
+
+			// Step 3: Fill form
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Should Not Be Saved')
+			await modalBody.getByTestId('transaction-amount').fill('999')
+
+			// Step 4: Cancel instead of save
+			const cancelBtn = page.getByTestId('modal-cancel-btn').or(page.getByRole('button', { name: /cancel|cancelar/i }))
+			await cancelBtn.click()
+
+			// Step 5: Verify modal closed
+			await expect(page.getByRole('dialog')).not.toBeVisible()
+
+			// Step 6: Verify transaction was not created
+			const newCount = await page.getByTestId('transaction-row').count()
+			expect(newCount).toBe(initialCount)
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
+		}
 	})
 
 	test('M4-VAL-008: Should handle special characters in description', async ({ page }) => {
-		// Step 1: Open create transaction modal (handle empty state or regular button)
-		const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
-		await addBtn.click()
-		await expect(page.getByRole('dialog')).toBeVisible()
+		const testId = generateShortId()
 
-		// Step 2: Enter description with special characters
-		const modalBody = page.getByTestId('modal-body')
-		await modalBody.getByTestId('transaction-description').fill('Test <script>alert(1)</script> & "quotes"')
-		await modalBody.getByTestId('transaction-amount').fill('50')
+		await page.goto('/transactions')
+		await page.waitForLoadState('domcontentloaded')
 
-		const categorySelect = modalBody.getByTestId('transaction-category')
-		if (await categorySelect.isVisible()) {
-			await categorySelect.click()
-			await page.getByRole('option').first().click()
-		}
+		// Seed a category for transaction tests
+		await seedIsolatedCategories(page, testId, [TEST_CATEGORIES.foodAndDining])
 
-		// Step 3: Try to save
-		await page.getByTestId('modal-save-btn').click()
+		await page.reload()
+		await page.waitForLoadState('networkidle')
 
-		// Step 4: Check result - either sanitized, rejected, or saved safely
-		const modalClosed = !(await page.getByRole('dialog').isVisible().catch(() => false))
+		try {
+			// Step 1: Open create transaction modal (handle empty state or regular button)
+			const addBtn = page.getByTestId('add-transaction-btn').or(page.getByTestId('empty-state-cta'))
+			await addBtn.waitFor({ state: 'visible', timeout: 10000 })
+			await addBtn.click()
+			await expect(page.getByRole('dialog')).toBeVisible()
 
-		if (modalClosed) {
-			// Transaction was saved - verify XSS is not executed
-			const pageContent = await page.content()
-			expect(pageContent).not.toContain('<script>alert(1)')
-		} else {
-			// Validation prevented saving - also acceptable
-			expect(true).toBeTruthy()
+			// Step 2: Enter description with special characters
+			const modalBody = page.getByTestId('modal-body')
+			await modalBody.getByTestId('transaction-description').fill('Test <script>alert(1)</script> & "quotes"')
+			await modalBody.getByTestId('transaction-amount').fill('50')
+
+			const categorySelect = modalBody.getByTestId('transaction-category')
+			if (await categorySelect.isVisible()) {
+				await categorySelect.click()
+				await page.getByRole('option').first().click()
+			}
+
+			// Step 3: Try to save
+			await page.getByTestId('modal-save-btn').click()
+
+			// Step 4: Check result - either sanitized, rejected, or saved safely
+			const modalClosed = !(await page.getByRole('dialog').isVisible().catch(() => false))
+
+			if (modalClosed) {
+				// Transaction was saved - verify XSS is not executed
+				const pageContent = await page.content()
+				expect(pageContent).not.toContain('<script>alert(1)')
+			} else {
+				// Validation prevented saving - also acceptable
+				expect(true).toBeTruthy()
+			}
+		} finally {
+			await cleanupIsolatedTestData(page, testId)
 		}
 	})
 })

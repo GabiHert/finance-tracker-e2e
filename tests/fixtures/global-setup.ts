@@ -2,6 +2,7 @@ import { FullConfig } from '@playwright/test'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
+import { execSync } from 'child_process'
 
 async function globalSetup(config: FullConfig) {
   console.log('\n=== E2E Global Setup ===')
@@ -13,7 +14,18 @@ async function globalSetup(config: FullConfig) {
   const envPath = path.resolve(__dirname, '../../.env.e2e')
   dotenv.config({ path: envPath })
 
-  const baseURL = config.projects[0].use.baseURL || 'http://localhost:3001'
+  // Clean up test data to prevent accumulation between test runs
+  // Note: category_rules has a unique constraint that includes soft-deleted records,
+  // so we must use TRUNCATE CASCADE to truly clear all data including soft-deleted
+  console.log('Cleaning up test data...')
+  try {
+    execSync('docker exec finance-tracker-postgres-e2e psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM group_members; DELETE FROM groups;"', { stdio: 'pipe' })
+    console.log('Test data cleaned successfully')
+  } catch (error) {
+    console.log('Note: Could not clean test data (may not exist yet)')
+  }
+
+  const baseURL = process.env.PLAYWRIGHT_BASE_URL || config.projects[0].use.baseURL || 'http://localhost:3001'
   const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/api/v1'
 
   console.log(`Frontend URL: ${baseURL}`)

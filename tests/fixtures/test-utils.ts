@@ -915,3 +915,130 @@ export async function cleanupIsolatedTestData(page: Page, testId: string): Promi
     console.log(`Could not delete isolated categories for ${testId}: ${e}`)
   }
 }
+
+// ============================================
+// Category Rules API Helpers
+// ============================================
+
+/**
+ * Category Rule type definition
+ */
+export interface TestCategoryRule {
+  id: string
+  pattern: string
+  category_id: string
+  priority: number
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Helper to fetch all category rules via API
+ */
+export async function fetchCategoryRules(page: Page): Promise<TestCategoryRule[]> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.get(`${API_URL}/category-rules`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch category rules: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.rules || data || []
+}
+
+/**
+ * Helper to delete a category rule via API
+ */
+export async function deleteCategoryRule(page: Page, ruleId: string): Promise<void> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.delete(`${API_URL}/category-rules/${ruleId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok() && response.status() !== 404) {
+    throw new Error(`Failed to delete category rule: ${response.status()}`)
+  }
+}
+
+/**
+ * Helper to delete all category rules via API
+ * Used by M6 tests to clean up before each test file
+ */
+export async function deleteAllCategoryRules(page: Page): Promise<void> {
+  const rules = await fetchCategoryRules(page)
+  for (const rule of rules) {
+    await deleteCategoryRule(page, rule.id)
+  }
+}
+
+// ============================================
+// Group API Helpers
+// ============================================
+
+/**
+ * Group type definition
+ */
+export interface TestGroup {
+  id: string
+  name: string
+  owner_id: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Helper to fetch all groups via API
+ */
+export async function fetchGroups(page: Page): Promise<TestGroup[]> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.get(`${API_URL}/groups`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to fetch groups: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.groups || data || []
+}
+
+/**
+ * Helper to delete a group via API
+ */
+export async function deleteGroup(page: Page, groupId: string): Promise<void> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.delete(`${API_URL}/groups/${groupId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  if (!response.ok() && response.status() !== 404) {
+    throw new Error(`Failed to delete group: ${response.status()}`)
+  }
+}
+
+/**
+ * Helper to delete all groups via API
+ * Used by M9 tests to clean up before each test file
+ */
+export async function deleteAllGroups(page: Page): Promise<void> {
+  const groups = await fetchGroups(page)
+  for (const group of groups) {
+    await deleteGroup(page, group.id)
+  }
+}

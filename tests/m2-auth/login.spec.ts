@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { TEST_USER, createTestUser, loginViaUI } from '../fixtures/test-utils'
+import { TEST_USER, createTestUser, loginViaUI, API_URL } from '../fixtures/test-utils'
 
 /**
  * M2-E2E-001: User Login Flow
@@ -68,7 +68,7 @@ test.describe('M2: Authentication - Login', () => {
     expect(authToken!.length).toBeGreaterThan(10) // Tokens are long strings
 
     // Verify token works by making an authenticated API call
-    const response = await page.request.get('http://localhost:8081/api/v1/transactions', {
+    const response = await page.request.get(`${API_URL}/transactions`, {
       headers: { Authorization: `Bearer ${authToken}` }
     })
     expect(response.status()).toBe(200)

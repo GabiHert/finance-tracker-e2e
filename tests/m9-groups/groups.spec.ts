@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { deleteAllGroups } from '../fixtures/test-utils'
 
 /**
  * M9-E2E: Groups & Collaboration
@@ -18,6 +19,20 @@ import { test, expect } from '@playwright/test'
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M9: Groups & Collaboration', () => {
+	// Run tests serially to avoid race conditions with group counts
+	test.describe.configure({ mode: 'serial' })
+
+	// Clean up all groups before each test to ensure isolation
+	test.beforeEach(async ({ page }) => {
+		try {
+			await page.goto('/dashboard')
+			await page.waitForLoadState('domcontentloaded')
+			await deleteAllGroups(page)
+			console.log('Cleaned up groups before test')
+		} catch (e) {
+			console.log('Could not clean up groups:', e)
+		}
+	})
 	test('E2E-M9-01: Should create a new group', async ({ page }) => {
 		// Step 1: Navigate to groups screen
 		await page.goto('/groups')

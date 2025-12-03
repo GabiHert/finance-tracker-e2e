@@ -107,9 +107,13 @@ export default defineConfig({
       },
     },
     // M6 Category Rules tests - requires authentication (depends on auth-setup)
+    // Run sequentially with single worker to avoid race conditions with rule creation/ordering
+    // Multiple test files share the same rules table, so they must run one at a time
     {
       name: 'm6-rules',
       testDir: './tests/m6-rules',
+      fullyParallel: false,
+      workers: 1,
       dependencies: ['auth-setup'],
       use: {
         ...devices['Desktop Chrome'],
@@ -137,9 +141,13 @@ export default defineConfig({
       },
     },
     // M9 Groups & Collaboration tests - requires authentication (depends on auth-setup)
+    // Run sequentially with single worker to avoid race conditions with group creation/counts
+    // Multiple test files share the same groups table, so they must run one at a time
     {
       name: 'm9-groups',
       testDir: './tests/m9-groups',
+      fullyParallel: false,
+      workers: 1,
       dependencies: ['auth-setup'],
       use: {
         ...devices['Desktop Chrome'],

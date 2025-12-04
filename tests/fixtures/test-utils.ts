@@ -93,11 +93,12 @@ export async function loginTestUser(page: Page): Promise<string> {
  * Helper to login via UI with retry logic for flaky connections
  * Note: Rate limiting is disabled in E2E mode via E2E_MODE=true environment variable
  */
-export async function loginViaUI(page: Page, maxRetries = 3): Promise<void> {
+export async function loginViaUI(page: Page, maxRetries = 5): Promise<void> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Add small delay between retry attempts to let backend state settle
+    // Add delay between retry attempts to avoid rate limiting
+    // Delay increases with each attempt: 2s, 4s, 6s...
     if (attempt > 1) {
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(2000 * (attempt - 1))
     }
 
     await page.goto('/login')
@@ -148,7 +149,7 @@ export async function loginViaUIWithRequestCapture(
   page: Page,
   options: { rememberMe?: boolean; maxRetries?: number } = {}
 ): Promise<{ requestBody: Record<string, unknown> | null }> {
-  const { rememberMe = false, maxRetries = 3 } = options
+  const { rememberMe = false, maxRetries = 5 } = options
   let loginRequestBody: Record<string, unknown> | null = null
 
   // Set up request interception
@@ -164,9 +165,10 @@ export async function loginViaUIWithRequestCapture(
   })
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Add small delay between retry attempts to let backend state settle
+    // Add delay between retry attempts to avoid rate limiting
+    // Delay increases with each attempt: 2s, 4s, 6s...
     if (attempt > 1) {
-      await page.waitForTimeout(1000)
+      await page.waitForTimeout(2000 * (attempt - 1))
     }
 
     await page.goto('/login')

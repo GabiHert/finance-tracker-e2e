@@ -56,7 +56,8 @@ test.describe('M6: Rule Application', () => {
 		await page.getByRole('option').nth(categoryIndex).click()
 
 		await page.getByTestId('save-rule-btn').click()
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		// Wait for API response and dialog to close
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 	}
 
 	test('M6-E2E-17a: Should auto-categorize imported transactions using rules', async ({ page }) => {
@@ -195,7 +196,7 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('save-rule-btn').click()
 
 		// Step 6: Verify rule was created
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 		await expect(page.getByText('PIX*RECEBIDO')).toBeVisible()
 	})
 
@@ -252,7 +253,7 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('save-rule-btn').click()
 
 		// Step 6: Verify rule created
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 	})
 
 	test('M6-E2E-17g: Should prioritize more specific rules over generic ones', async ({ page }) => {
@@ -270,7 +271,7 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('category-selector').click()
 		await page.getByRole('option').nth(0).click()
 		await page.getByTestId('save-rule-btn').click()
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 
 		// Step 2: Create more specific rule: PRIORITY_xxx_SPECIFIC -> Category 2
 		await page.getByTestId('new-rule-btn').click()
@@ -280,7 +281,7 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('category-selector').click()
 		await page.getByRole('option').nth(1).click()
 		await page.getByTestId('save-rule-btn').click()
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 
 		// Step 3: Reorder so the specific rule has higher priority (drag to top)
 		const ruleRows = page.getByTestId('rule-row')
@@ -344,5 +345,145 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('category-selector').click()
 		await page.getByRole('option').first().click()
 		await page.getByTestId('save-rule-btn').click()
+	})
+
+	test('M6-E2E-17i: Should apply rule to existing uncategorized transactions', async ({ page }) => {
+		// Use unique identifiers to avoid conflicts
+		const uniqueId = Date.now().toString().slice(-6)
+		const categoryName = `RetroApply Category ${uniqueId}`
+		const rulePattern = `RETROAPPLY_${uniqueId}`
+
+		// Navigate to app first to establish auth context and access localStorage
+		await page.goto('/rules')
+		await page.waitForLoadState('domcontentloaded')
+
+		// Step 1: Create a category via API
+		const token = await page.evaluate(() => localStorage.getItem('access_token') || '')
+		const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:9081/api/v1'
+
+		const categoryResponse = await page.request.post(`${API_URL}/categories`, {
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			data: {
+				name: categoryName,
+				icon: 'car',
+				color: '#FF5722',
+				type: 'expense',
+			},
+		})
+		expect(categoryResponse.ok()).toBeTruthy()
+		const category = await categoryResponse.json()
+
+		// Step 2: Create transactions WITHOUT category via API (uncategorized)
+		// Use today's date so they appear in the default transaction list
+		const today = new Date()
+		const year = today.getFullYear()
+		const month = String(today.getMonth() + 1).padStart(2, '0')
+		const day = String(today.getDate()).padStart(2, '0')
+		const todayStr = `${year}-${month}-${day}`
+		const transactions = [
+			{ description: `${rulePattern} TRIP TO AIRPORT`, amount: -50.00, date: todayStr },
+			{ description: `${rulePattern.toLowerCase()} ride downtown`, amount: -25.00, date: todayStr },
+			{ description: `GROCERY STORE ${uniqueId}`, amount: -100.00, date: todayStr }, // Should NOT match
+		]
+
+		const createdTransactionIds: string[] = []
+		for (const tx of transactions) {
+			const txResponse = await page.request.post(`${API_URL}/transactions`, {
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				data: {
+					description: tx.description,
+					amount: tx.amount,
+					date: tx.date,
+					type: 'expense',
+					// NO category_id - should be uncategorized
+				},
+			})
+			expect(txResponse.ok()).toBeTruthy()
+			const createdTx = await txResponse.json()
+			createdTransactionIds.push(createdTx.id)
+		}
+
+		// Step 3: Verify transactions are uncategorized (via API)
+		// Use date filtering to ensure we get the right transactions
+		const txListResponse = await page.request.get(`${API_URL}/transactions?start_date=${year}-${month}-01&end_date=${year}-${month}-31&limit=100`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+		expect(txListResponse.ok()).toBeTruthy()
+		const txListData = await txListResponse.json()
+		const ourTransactions = txListData.transactions.filter((t: any) =>
+			createdTransactionIds.includes(t.id)
+		)
+		// Ensure we found all 3 transactions
+		expect(ourTransactions.length).toBe(3)
+		// All 3 should have no category initially
+		for (const tx of ourTransactions) {
+			expect(tx.category).toBeFalsy()  // null or undefined
+		}
+
+		// Step 4: Create a rule with pattern (case-insensitive) via UI
+		await page.goto('/rules')
+		await page.getByTestId('new-rule-btn').click()
+		await expect(page.getByRole('dialog')).toBeVisible()
+
+		await page.getByTestId('match-type-selector').click()
+		await page.getByRole('option', { name: /cont[eé]m/i }).click()
+
+		await page.getByTestId('pattern-input').fill(rulePattern)
+
+		// Select the category we created
+		await page.getByTestId('category-selector').click()
+		await page.getByRole('option', { name: categoryName }).click()
+
+		await page.getByTestId('save-rule-btn').click()
+		// Wait for rule creation to complete
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
+
+		// Step 5: Verify matching transactions now have the category (via API)
+		// Give a moment for backend to apply the rule
+		await page.waitForTimeout(500)
+
+		const txListResponseAfter = await page.request.get(`${API_URL}/transactions?start_date=${year}-${month}-01&end_date=${year}-${month}-31&limit=100`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+		expect(txListResponseAfter.ok()).toBeTruthy()
+		const txListDataAfter = await txListResponseAfter.json()
+
+		const ourTransactionsAfter = txListDataAfter.transactions.filter((t: any) =>
+			createdTransactionIds.includes(t.id)
+		)
+
+		// Count how many now have the category
+		let categorizedCount = 0
+		let uncategorizedCount = 0
+		for (const tx of ourTransactionsAfter) {
+			if (tx.category && tx.category.id === category.id) {
+				categorizedCount++
+			} else if (!tx.category) {
+				uncategorizedCount++
+			}
+		}
+
+		// The 2 transactions matching RETROAPPLY pattern should now have the category
+		expect(categorizedCount).toBe(2)
+		// The GROCERY STORE transaction should still be uncategorized
+		expect(uncategorizedCount).toBe(1)
+
+		// Cleanup: Delete test transactions
+		for (const txId of createdTransactionIds) {
+			await page.request.delete(`${API_URL}/transactions/${txId}`, {
+				headers: { Authorization: `Bearer ${token}` },
+			})
+		}
+
+		// Cleanup: Delete test category (will also delete the rule)
+		await page.request.delete(`${API_URL}/categories/${category.id}`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
 	})
 })

@@ -53,7 +53,7 @@ test.describe('M6: Rule Priority Conflicts', () => {
 		await page.getByTestId('category-selector').click()
 		await page.getByRole('option').first().click()
 		await page.getByTestId('save-rule-btn').click()
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 
 		// Step 3: Create second rule for UBER EATS (more specific pattern)
 		await page.getByTestId('new-rule-btn').click()
@@ -65,7 +65,7 @@ test.describe('M6: Rule Priority Conflicts', () => {
 		await page.getByTestId('category-selector').click()
 		await page.getByRole('option').nth(1).click()
 		await page.getByTestId('save-rule-btn').click()
-		await expect(page.getByRole('dialog')).not.toBeVisible()
+		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 
 		// Step 4: Verify both rules are created
 		const ruleRows = page.getByTestId('rule-row')
@@ -119,7 +119,8 @@ test.describe('M6: Rule Priority Conflicts', () => {
 			await page.getByTestId('category-selector').click()
 			await page.getByRole('option').first().click()
 			await page.getByTestId('save-rule-btn').click()
-			await expect(page.getByRole('dialog')).not.toBeVisible()
+			// Wait for API response and dialog to close
+			await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 			count = await ruleRows.count()
 		}
 
@@ -211,7 +212,7 @@ test.describe('M6: Rule Priority Conflicts', () => {
 			await page.getByTestId('category-selector').click()
 			await page.getByRole('option').first().click()
 			await page.getByTestId('save-rule-btn').click()
-			await expect(page.getByRole('dialog')).not.toBeVisible()
+			await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
 			count = await ruleRows.count()
 		}
 

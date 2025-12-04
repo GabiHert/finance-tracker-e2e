@@ -480,9 +480,15 @@ test.describe('M9: Groups & Collaboration', () => {
 		await page.goto('/groups')
 		await expect(page.getByTestId('groups-screen')).toBeVisible()
 
-		// Step 2: Check if empty state or group cards are displayed
+		// Step 2: Wait for loading to complete - either groups or empty state should appear
 		const groupCards = page.getByTestId('group-card')
 		const emptyState = page.getByTestId('groups-empty-state')
+
+		// Wait for either groups or empty state to be visible (loading complete)
+		await Promise.race([
+			groupCards.first().waitFor({ state: 'visible', timeout: 10000 }),
+			emptyState.waitFor({ state: 'visible', timeout: 10000 }),
+		]).catch(() => {})
 
 		const hasGroups = (await groupCards.count()) > 0
 		const hasEmptyState = await emptyState.isVisible().catch(() => false)

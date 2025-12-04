@@ -114,10 +114,11 @@ test.describe('M11: Polish & MVP Completion', () => {
 			const viewportHeight = mobileViewport.height
 			expect(bottomNavBox?.y).toBeGreaterThan(viewportHeight - 100)
 
-			// Verify all 5 navigation items are present
+			// Verify all 6 navigation items are present
 			await expect(page.getByTestId('bottom-nav-dashboard')).toBeVisible()
 			await expect(page.getByTestId('bottom-nav-transactions')).toBeVisible()
 			await expect(page.getByTestId('bottom-nav-categories')).toBeVisible()
+			await expect(page.getByTestId('bottom-nav-rules')).toBeVisible()
 			await expect(page.getByTestId('bottom-nav-goals')).toBeVisible()
 			await expect(page.getByTestId('bottom-nav-settings')).toBeVisible()
 

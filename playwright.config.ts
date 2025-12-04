@@ -184,6 +184,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M12 Credit Card Import tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm12-cc-import',
+      testDir: './tests/m12-cc-import',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

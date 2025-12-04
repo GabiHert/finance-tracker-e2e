@@ -76,6 +76,10 @@ test.describe('M2: Authentication - Logout', () => {
 		// Verify redirected to login
 		await expect(page).toHaveURL(/.*login/)
 
+		// Wait for logout to fully complete before attempting new login
+		await page.waitForLoadState('networkidle')
+		await page.waitForTimeout(1000)
+
 		// Login again using the helper with retry logic
 		await loginViaUI(page)
 

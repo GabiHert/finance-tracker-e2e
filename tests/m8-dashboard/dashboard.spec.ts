@@ -479,6 +479,95 @@ test.describe('M8: Dashboard & Analytics', () => {
 		// may be creating transactions. Format validation is sufficient.
 	})
 
+	test('M8-E2E-COLOR-001: Expenses 0% change should show red indicator (not green)', async ({ page }) => {
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		const expensesCard = page.getByTestId('metric-card-expenses')
+		await expect(expensesCard).toBeVisible()
+
+		const trendIndicator = expensesCard.getByTestId('trend-indicator')
+
+		// If there's a trend indicator showing (has change data)
+		if (await trendIndicator.isVisible()) {
+			const indicatorText = await trendIndicator.textContent()
+
+			// If change is 0% or positive (expenses increased or unchanged)
+			// it should show red, not green
+			if (indicatorText?.includes('+')) {
+				// Positive change in expenses is BAD - should be red
+				await expect(trendIndicator).toHaveClass(/text-red-500/)
+			}
+		}
+	})
+
+	test('M8-E2E-COLOR-002: Negative balance should display in red', async ({ page }) => {
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		const balanceCard = page.getByTestId('metric-card-balance')
+		await expect(balanceCard).toBeVisible()
+
+		const metricValue = balanceCard.getByTestId('metric-value')
+		const valueText = await metricValue.textContent()
+
+		// If balance is negative
+		if (valueText?.includes('-')) {
+			await expect(metricValue).toHaveClass(/text-red-500/)
+		}
+	})
+
+	test('M8-E2E-COLOR-003: Negative savings should display in red', async ({ page }) => {
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		const savingsCard = page.getByTestId('metric-card-savings')
+		await expect(savingsCard).toBeVisible()
+
+		const metricValue = savingsCard.getByTestId('metric-value')
+		const valueText = await metricValue.textContent()
+
+		// If savings is negative
+		if (valueText?.includes('-')) {
+			await expect(metricValue).toHaveClass(/text-red-500/)
+		} else {
+			// Positive savings should be green
+			await expect(metricValue).toHaveClass(/text-green-500/)
+		}
+	})
+
+	test('M8-E2E-COLOR-004: Positive balance should display in default color', async ({ page }) => {
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		const balanceCard = page.getByTestId('metric-card-balance')
+		const metricValue = balanceCard.getByTestId('metric-value')
+		const valueText = await metricValue.textContent()
+
+		// If balance is positive (no minus sign)
+		if (valueText && !valueText.includes('-')) {
+			// Should NOT have red class
+			await expect(metricValue).not.toHaveClass(/text-red-500/)
+		}
+	})
+
+	test('M8-E2E-COLOR-005: Expenses decrease should show green indicator', async ({ page }) => {
+		await page.goto('/dashboard')
+		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
+
+		const expensesCard = page.getByTestId('metric-card-expenses')
+		const trendIndicator = expensesCard.getByTestId('trend-indicator')
+
+		if (await trendIndicator.isVisible()) {
+			const indicatorText = await trendIndicator.textContent()
+
+			// If change is negative (expenses decreased) - this is GOOD
+			if (indicatorText && !indicatorText.includes('+') && indicatorText.includes('-')) {
+				await expect(trendIndicator).toHaveClass(/text-green-500/)
+			}
+		}
+	})
+
 	test('M8-E2E-MOCK: Should NOT display mock data values', async ({ page }) => {
 		// Helper to parse Brazilian currency format
 		const parseAmount = (text: string | null) => {

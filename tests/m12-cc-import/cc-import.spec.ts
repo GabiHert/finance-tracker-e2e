@@ -5,6 +5,9 @@ import {
   sampleCCCSVMismatch,
   emptyCSV,
   invalidCSV,
+  realNubankCSV,
+  installmentCSV,
+  refundCSV,
   generateTestId,
   createBillPayment,
   uploadCCCSV,
@@ -51,8 +54,8 @@ test.describe('M12: Credit Card Statement Import', () => {
     // Open format dropdown
     await page.getByTestId('bank-format-selector').click()
 
-    // Verify CC option exists - look for "Nubank Credit Card" or "Cartão de Crédito Nubank"
-    const ccOption = page.getByRole('option', { name: /nubank.*credit|cartão.*crédito|credit.*card/i })
+    // Verify CC option exists - the label is "Nubank Cartao de Credito"
+    const ccOption = page.getByRole('option', { name: /nubank.*cart[aã]o/i })
     await expect(ccOption).toBeVisible()
 
     // Select CC format
@@ -434,5 +437,118 @@ test.describe('M12: Credit Card Statement Import', () => {
     // Verify correct match (R$ 1000 bill, not R$ 500)
     await expect(page.getByTestId('match-bill-amount')).toContainText(/1.*000|1,000/i)
     await expect(page.getByTestId('match-bill-date')).toContainText('31/10')
+  })
+
+  // ============================================================
+  // 3.8 Real Nubank CSV Tests
+  // ============================================================
+
+  test('E2E-CC-017: Parse real Nubank CSV with 38 transactions', async ({ page }) => {
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, realNubankCSV)
+
+    // Wait for parsing - should show all 38 transactions
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify transaction count (38 lines in realNubankCSV)
+    await expect(page.getByTestId('transaction-count')).toContainText('38')
+
+    // Verify "Pagamento recebido" is identified
+    await expect(page.getByTestId('payment-received-row')).toBeVisible()
+    await expect(page.getByTestId('payment-received-row')).toContainText('-8235.79')
+  })
+
+  test('E2E-CC-018: Real CSV shows billing cycle as 2025-11', async ({ page }) => {
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, realNubankCSV)
+
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify billing cycle is extracted from "Pagamento recebido" date (2025-11-04)
+    await expect(page.getByTestId('billing-cycle-display')).toContainText('2025-11')
+  })
+
+  test('E2E-CC-019: Real CSV detects multiple installments', async ({ page }) => {
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, realNubankCSV)
+
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify installment detection (multiple "Parcela X/Y" in realNubankCSV)
+    const installmentRows = page.locator('[data-testid="installment-indicator"]')
+    const count = await installmentRows.count()
+    expect(count).toBeGreaterThanOrEqual(6) // At least 6 installments in the CSV
+  })
+
+  test('E2E-CC-020: Real CSV detects refund (negative amount)', async ({ page }) => {
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, realNubankCSV)
+
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify refund "Estorno de compra" is detected
+    const refundRow = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundRow).toBeVisible()
+    await expect(refundRow).toContainText('-253.82')
+  })
+
+  // ============================================================
+  // 3.9 Installment-Specific Tests
+  // ============================================================
+
+  test('E2E-CC-021: Import CSV with only installments', async ({ page }) => {
+    // Setup: Create bill payment matching installment total
+    await createBillPayment(page, { date: '2025-10-31', amount: -331.18, testId })
+    await page.reload()
+
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, installmentCSV)
+
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // All non-payment transactions should have installment indicators
+    const installmentRows = page.locator('[data-testid="installment-indicator"]')
+    const count = await installmentRows.count()
+    expect(count).toBe(3) // 3 installment transactions
+
+    // Proceed with import
+    await page.getByTestId('import-next-btn').click()
+    await page.getByTestId('confirm-import-btn').click()
+    await page.getByTestId('confirm-import-action-btn').click()
+
+    await expect(page.getByTestId('toast-success')).toBeVisible()
+  })
+
+  // ============================================================
+  // 3.10 Refund Tests
+  // ============================================================
+
+  test('E2E-CC-022: Import CSV with refund transaction', async ({ page }) => {
+    // Setup: Create bill payment
+    await createBillPayment(page, { date: '2025-10-31', amount: -366.91, testId })
+    await page.reload()
+
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, refundCSV)
+
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Refund should appear as a negative amount (credit)
+    const refundRow = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundRow).toBeVisible()
+    await expect(refundRow).toContainText('-253.82')
+
+    // Proceed with import
+    await page.getByTestId('import-next-btn').click()
+    await page.getByTestId('confirm-import-btn').click()
+    await page.getByTestId('confirm-import-action-btn').click()
+
+    await expect(page.getByTestId('toast-success')).toBeVisible()
   })
 })

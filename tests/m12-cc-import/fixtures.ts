@@ -5,13 +5,56 @@ import { Page, expect } from '@playwright/test'
  * Helpers for credit card import E2E tests
  */
 
-// Sample CSV content for Nubank Credit Card format
-export const sampleCCCSV = `date,title,amount
-2025-11-06,Mercado Silva,8.99
-2025-11-08,Bourbon Ipiranga,794.15
+// ============================================================
+// Real Nubank CSV Data (based on actual export)
+// ============================================================
+
+export const realNubankCSV = `date,title,amount
+2025-12-03,Zaffari Cabral,44.90
+2025-12-02,Coollab,10.00
+2025-12-02,Espaco,6.00
+2025-12-01,Bourbon Ipiranga,587.09
+2025-12-01,Ifd*Parrilla Del Sur A,172.87
+2025-11-30,Stb*Alpina Presentes L,25.99
+2025-11-30,Adriano Antonio Schnei,164.71
+2025-11-30,Amazonmktplc*Guilherme,68.00
+2025-11-28,Z Cafe,44.40
+2025-11-28,Comercial de Combustiv,236.83
+2025-11-26,Oh Bruder - Bela Vista,88.88
+2025-11-24,Ifd*Sul Calabria Pizza,89.79
+2025-11-23,Estacao,90.00
+2025-11-23,Bourbon Ipiranga,327.60
+2025-11-22,Apple.Com/Bill,34.90
+2025-11-21,Ifd*Galeteria Mm Teres,133.49
+2025-11-21,Uber* Trip,10.98
+2025-11-17,Amazon,100.52
+2025-11-17,Locale Poa,353.69
+2025-11-16,Zaffari Ipiranga,347.46
+2025-11-15,Estorno de compra,-253.82
+2025-11-14,Bourbon Ipiranga,620.73
+2025-11-11,Bolha Azul,140.00
+2025-11-10,Espaco de Cinema Sul,50.00
+2025-11-10,Bourbon Country,171.38
+2025-11-09,Kampeki,174.01
 2025-11-08,Hospital Sao Lucas da - Parcela 1/3,196.84
+2025-11-08,Bourbon Ipiranga,794.15
 2025-11-07,Mercadolivre*Mercadol - Parcela 1/6,55.04
-2025-11-04,Pagamento recebido,-1124.77`
+2025-11-07,Lugardepetclinica,245.00
+2025-11-06,Mercado Silva,8.99
+2025-11-06,Aloha Petshop,89.90
+2025-11-04,Pagamento recebido,-8235.79
+2025-11-04,Livraria da Travessa L - Parcela 2/3,79.30
+2025-11-04,Amazon - Parcela 2/6,47.90
+2025-11-04,Midea Com - Parcela 1/12,253.82
+2025-11-04,Giullia Magueta de Lim - Parcela 3/6,351.50
+2025-11-04,Mp *Autoservico - Parcela 2/4,353.75`
+
+// Sample CSV content for Nubank Credit Card format (simpler version)
+export const sampleCCCSV = `date,title,amount
+2025-11-08,Bourbon Ipiranga,794.15
+2025-11-07,Mercado Silva,108.99
+2025-11-06,Aloha Petshop,89.90
+2025-11-04,Pagamento recebido,-993.04`
 
 // CSV without matching bill (no Pagamento recebido)
 export const sampleCCCSVNoPayment = `date,title,amount
@@ -20,7 +63,7 @@ export const sampleCCCSVNoPayment = `date,title,amount
 
 // CSV with amount mismatch
 export const sampleCCCSVMismatch = `date,title,amount
-2025-11-06,Purchase 1,1130.00
+2025-11-06,Store Purchase,1130.00
 2025-11-04,Pagamento recebido,-1130.00`
 
 // Empty CSV (headers only)
@@ -29,6 +72,19 @@ export const emptyCSV = `date,title,amount`
 // Invalid CSV format
 export const invalidCSV = `wrong,columns,here
 data1,data2,data3`
+
+// CSV with installments only
+export const installmentCSV = `date,title,amount
+2025-11-08,Hospital Sao Lucas da - Parcela 1/3,196.84
+2025-11-08,Mercadolivre*Mercadol - Parcela 1/6,55.04
+2025-11-04,Livraria da Travessa L - Parcela 2/3,79.30
+2025-11-04,Pagamento recebido,-331.18`
+
+// CSV with refund
+export const refundCSV = `date,title,amount
+2025-11-15,Estorno de compra,-253.82
+2025-11-14,Bourbon Ipiranga,620.73
+2025-11-04,Pagamento recebido,-366.91`
 
 /**
  * Generate a unique test ID for isolating test data
@@ -44,15 +100,20 @@ export async function createBillPayment(
   page: Page,
   data: { date: string; amount: number; testId?: string }
 ): Promise<{ id: string }> {
+  // Amount should be positive for expenses in the backend API
+  const absAmount = Math.abs(data.amount)
   const response = await page.request.post('/api/v1/transactions', {
     data: {
       date: data.date,
       description: `Pagamento de fatura${data.testId ? ` [${data.testId}]` : ''}`,
-      amount: data.amount,
+      amount: absAmount,
       type: 'expense',
     },
   })
-  expect(response.ok()).toBeTruthy()
+  if (!response.ok()) {
+    const text = await response.text()
+    throw new Error(`Failed to create bill payment: ${response.status()} - ${text}`)
+  }
   const json = await response.json()
   return { id: json.data?.id || json.id }
 }
@@ -95,8 +156,8 @@ export async function uploadCCCSV(page: Page, csvContent: string): Promise<void>
  */
 export async function selectCCFormat(page: Page): Promise<void> {
   await page.getByTestId('bank-format-selector').click()
-  // Look for the credit card option
-  await page.getByRole('option', { name: /nubank.*credit|cartão.*crédito/i }).click()
+  // Look for the credit card option - the label is "Nubank Cartao de Credito"
+  await page.getByRole('option', { name: /nubank.*cart[aã]o/i }).click()
 }
 
 /**

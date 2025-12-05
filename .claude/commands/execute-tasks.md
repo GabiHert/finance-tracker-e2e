@@ -24,8 +24,51 @@ You are tasked with executing ALL pending tasks in `tasks/todo/` until completio
 5. Run tests to confirm they PASS
 6. Run full E2E suite: cd e2e && npx playwright test
 7. If all tests pass, move the task: mv tasks/todo/TASK-{name}.md tasks/done/
-8. Proceed to next task
+8. COMMIT changes in all sub repositories (see COMMIT PROTOCOL below)
+9. Proceed to next task
 ```
+
+## COMMIT PROTOCOL
+
+After each task is completed and moved to `tasks/done/`, commit all changes in each sub repository that has modifications.
+
+**IMPORTANT:** Do NOT include co-author tags in commit messages.
+
+### Check and commit each repository:
+
+```bash
+# For each repository, check for changes and commit if any exist:
+
+# E2E
+cd e2e && git status
+# If changes exist:
+git add -A && git commit -m "feat: TASK-{name} - {brief description}"
+
+# Backend
+cd ../backend && git status
+# If changes exist:
+git add -A && git commit -m "feat: TASK-{name} - {brief description}"
+
+# Frontend
+cd ../frontend && git status
+# If changes exist:
+git add -A && git commit -m "feat: TASK-{name} - {brief description}"
+
+# Infra
+cd ../infra && git status
+# If changes exist:
+git add -A && git commit -m "feat: TASK-{name} - {brief description}"
+
+# Return to root
+cd ..
+```
+
+### Commit message format:
+- Use `feat:` for new features
+- Use `fix:` for bug fixes
+- Use `test:` for test-only changes
+- Include the task name (e.g., `TASK-Add-Rules-Navigation-Link`)
+- Add a brief description of what changed in that specific repository
 
 ## TASK-SPECIFIC COMMANDS
 
@@ -57,6 +100,7 @@ You are DONE only when:
 - [ ] All E2E tests pass: `cd e2e && npx playwright test`
 - [ ] No TypeScript errors: `cd frontend && npm run build`
 - [ ] No backend errors: `cd backend && make test`
+- [ ] All changes committed in sub repositories (e2e, backend, frontend, infra)
 
 ## START NOW
 

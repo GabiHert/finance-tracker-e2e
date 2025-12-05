@@ -8,10 +8,19 @@ You are creating a comprehensive task specification based on the user's request:
 
 Before writing the task file, thoroughly investigate:
 
-1. **Read relevant context files** in `context/` folder
-2. **Explore the codebase** to understand current implementation
-3. **Check existing E2E tests** in `e2e/tests/` for related functionality
-4. **Identify all files** that need to be created or modified
+1. **Check for existing feature specs** in `context/features/`
+   - If a feature spec exists for this task, use it as the primary source
+   - Feature specs contain: ui-requirements.md, integration.md, backend-tdd.md, e2e-scenarios.md
+
+2. **Read relevant context files:**
+   - `context/features/{feature-code}/` - Feature-specific specs (preferred)
+   - `context/` - Project-wide guides (for patterns and standards)
+
+3. **Explore the codebase** to understand current implementation
+
+4. **Check existing E2E tests** in `e2e/tests/` for related functionality
+
+5. **Identify all files** that need to be created or modified
 
 ### Step 2: Create Task File
 
@@ -163,12 +172,22 @@ After creating the task file:
 
 ## CONTEXT FILES TO CHECK
 
-Before creating the task, read these if relevant:
+Before creating the task, check these locations in order:
 
-- `context/Finance-Tracker-Frontend-UI-Requirements-v3.md` - UI specs
-- `context/finance-tracker-backend-tdd-v6.md` - Backend API specs
-- `context/Finance-Tracker-Implementation-Guide-Complete-v1.md` - Full implementation guide
+### Feature-Specific Specs (Preferred)
+If the task relates to a specific feature, check `context/features/{feature-code}/`:
+- `README.md` - Feature overview and dependencies
+- `ui-requirements.md` - Frontend UI specifications
+- `integration.md` - API contracts and state management
+- `backend-tdd.md` - Backend BDD scenarios and implementation
+- `e2e-scenarios.md` - E2E test scenarios
+
+### Project-Wide Guides (For Patterns & Standards)
+- `context/Finance-Tracker-Frontend-UI-Requirements-v3.md` - Full UI specs
+- `context/finance-tracker-backend-tdd-v6.md` - Full backend API specs
+- `context/Finance-Tracker-Implementation-Guide-Complete-v1.md` - Implementation guide
 - `context/Finance-Tracker-E2E-Testing-Guide-v1.md` - E2E test patterns
+- `context/Finance-Tracker-Integration-TDD-v1.md` - Integration patterns
 
 ---
 

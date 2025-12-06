@@ -185,9 +185,23 @@ export default defineConfig({
       },
     },
     // M12 Credit Card Import tests - requires authentication (depends on auth-setup)
+    // Run sequentially with single worker to avoid race conditions with bill payment matching
+    // Multiple tests create bill payments with same amounts, causing match conflicts
     {
       name: 'm12-cc-import',
       testDir: './tests/m12-cc-import',
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
+    // M13 Category Trends Chart tests - requires authentication (depends on auth-setup)
+    {
+      name: 'm13-category-trends',
+      testDir: './tests/M13-category-trends',
       dependencies: ['auth-setup'],
       use: {
         ...devices['Desktop Chrome'],

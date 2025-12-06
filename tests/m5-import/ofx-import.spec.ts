@@ -63,9 +63,9 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		await page.getByTestId('import-transactions-btn').click()
 		await expect(page.getByRole('dialog')).toBeVisible()
 
-		// Step 2: Check if Nubank format is available
+		// Step 2: Check if Nubank format is available (use exact match to avoid CC option)
 		await page.getByTestId('bank-format-selector').click()
-		const nubankOption = page.getByRole('option', { name: /nubank/i })
+		const nubankOption = page.getByRole('option', { name: 'Nubank', exact: true })
 		const hasNubank = await nubankOption.isVisible().catch(() => false)
 
 		if (hasNubank) {

@@ -50,11 +50,12 @@ export const realNubankCSV = `date,title,amount
 2025-11-04,Mp *Autoservico - Parcela 2/4,353.75`
 
 // Sample CSV content for Nubank Credit Card format (simpler version)
+// Amounts: 794.15 + 240.72 + 89.90 = 1124.77 (matches bill payment in tests)
 export const sampleCCCSV = `date,title,amount
 2025-11-08,Bourbon Ipiranga,794.15
-2025-11-07,Mercado Silva,108.99
+2025-11-07,Mercado Silva,240.72
 2025-11-06,Aloha Petshop,89.90
-2025-11-04,Pagamento recebido,-993.04`
+2025-11-04,Pagamento recebido,-1124.77`
 
 // CSV without matching bill (no Pagamento recebido)
 export const sampleCCCSVNoPayment = `date,title,amount
@@ -94,15 +95,38 @@ export function generateTestId(): string {
 }
 
 /**
+ * Get the access token from page's localStorage
+ */
+async function getAccessToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem('access_token'))
+  if (!token) {
+    throw new Error('No access token found in localStorage')
+  }
+  return token
+}
+
+/**
  * Create a bill payment transaction via API
  */
 export async function createBillPayment(
   page: Page,
   data: { date: string; amount: number; testId?: string }
 ): Promise<{ id: string }> {
+  // Ensure page is navigated so localStorage is available
+  if (page.url() === 'about:blank') {
+    await page.goto('/transactions')
+    await page.waitForLoadState('domcontentloaded')
+  }
+
+  // Get auth token from localStorage
+  const token = await getAccessToken(page)
+
   // Amount should be positive for expenses in the backend API
   const absAmount = Math.abs(data.amount)
   const response = await page.request.post('/api/v1/transactions', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
     data: {
       date: data.date,
       description: `Pagamento de fatura${data.testId ? ` [${data.testId}]` : ''}`,
@@ -125,7 +149,11 @@ export async function createCategory(
   page: Page,
   data: { name: string; type: 'expense' | 'income'; testId?: string }
 ): Promise<{ id: string }> {
+  const token = await getAccessToken(page)
   const response = await page.request.post('/api/v1/categories', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
     data: {
       name: `${data.name}${data.testId ? ` [${data.testId}]` : ''}`,
       type: data.type,
@@ -200,24 +228,48 @@ export async function completeImportFlow(
 }
 
 /**
- * Delete transactions by test ID suffix
+ * Delete transactions by test ID suffix AND CC transactions from test billing cycles
  */
 export async function cleanupTestTransactions(page: Page, testId: string): Promise<void> {
+  // Try to get token - if page isn't properly set up, skip cleanup silently
+  let token: string
+  try {
+    token = await getAccessToken(page)
+  } catch {
+    return // No token available, skip cleanup
+  }
+
   // Get all transactions for this user
-  const response = await page.request.get('/api/v1/transactions')
+  const response = await page.request.get('/api/v1/transactions', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  })
   if (!response.ok()) return
 
   const json = await response.json()
   const transactions = json.data || json.transactions || []
 
-  // Find transactions with our test ID
+  // Find transactions to delete:
+  // 1. Transactions with any test ID in description (pattern: [test-xxxxx])
+  // 2. CC transactions (have billing_cycle field) from test billing cycles
+  // 3. Bill payments that have been expanded (is_credit_card_payment or expanded_at set)
+  const testBillingCycles = ['2025-11', '2025-10']
+  const testIdPattern = /\[test-[a-z0-9-]+\]/
   const testTransactions = transactions.filter(
-    (t: { description?: string }) =>
-      t.description?.includes(`[${testId}]`)
+    (t: { description?: string; billing_cycle?: string; is_credit_card_payment?: boolean; expanded_at?: string }) =>
+      t.description?.match(testIdPattern) ||
+      (t.billing_cycle && testBillingCycles.includes(t.billing_cycle)) ||
+      t.is_credit_card_payment === true ||
+      t.expanded_at != null
   )
 
   // Delete each one
   for (const tx of testTransactions) {
-    await page.request.delete(`/api/v1/transactions/${tx.id}`)
+    await page.request.delete(`/api/v1/transactions/${tx.id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
   }
 }

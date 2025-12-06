@@ -46,10 +46,10 @@ test.describe('M5: Transaction Import', () => {
     // Verify bank format selector exists
     await expect(page.getByTestId('bank-format-selector')).toBeVisible()
 
-    // Open the selector and verify options
+    // Open the selector and verify options (use exact match to avoid ambiguity)
     await page.getByTestId('bank-format-selector').click()
-    await expect(page.getByRole('option', { name: /auto/i })).toBeVisible()
-    await expect(page.getByRole('option', { name: /nubank/i })).toBeVisible()
+    await expect(page.getByRole('option', { name: 'Auto Detect' })).toBeVisible()
+    await expect(page.getByRole('option', { name: 'Nubank', exact: true })).toBeVisible()
   })
 
   test('M5-E2E-004: Should show drag-drop zone with browse button', async ({ page }) => {

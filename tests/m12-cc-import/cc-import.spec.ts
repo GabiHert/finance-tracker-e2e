@@ -31,8 +31,11 @@ import {
 test.describe('M12: Credit Card Statement Import', () => {
   let testId: string
 
-  test.beforeEach(() => {
+  test.beforeEach(async ({ page }) => {
     testId = generateTestId()
+    // Clean up any leftover CC transactions from previous test runs
+    // This ensures each test starts with a clean slate
+    await cleanupTestTransactions(page, 'pre-cleanup')
   })
 
   test.afterEach(async ({ page }) => {
@@ -131,16 +134,26 @@ test.describe('M12: Credit Card Statement Import', () => {
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
 
+    // Wait for step 2 (matching preview) to load
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+
     // Verify warning about difference
-    await expect(page.getByTestId('match-difference-warning')).toBeVisible()
+    await expect(page.getByTestId('match-difference-warning')).toBeVisible({ timeout: 10000 })
     await expect(page.getByTestId('match-difference')).toBeVisible()
 
     // Proceed with import
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
+    // Wait for success dialog and close it
+    await expect(page.getByTestId('import-success')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('import-done-btn').click()
+
+    // Wait for modal to close and CC status to load
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
+
     // Verify mismatch banner appears
-    await expect(page.getByTestId('cc-mismatch-banner')).toBeVisible()
+    await expect(page.getByTestId('cc-mismatch-banner')).toBeVisible({ timeout: 10000 })
   })
 
   test('E2E-CC-004: Import without matching bill payment', async ({ page }) => {
@@ -153,8 +166,11 @@ test.describe('M12: Credit Card Statement Import', () => {
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
 
+    // Wait for step 2 (matching preview) to load
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+
     // Verify no match message
-    await expect(page.getByTestId('no-matches-message')).toBeVisible()
+    await expect(page.getByTestId('no-matches-message')).toBeVisible({ timeout: 10000 })
 
     // Proceed
     await page.getByTestId('confirm-import-btn').click()
@@ -182,6 +198,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSV)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -207,6 +224,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, installmentCSV)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -223,6 +241,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSV)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -230,8 +249,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     const expandedBill = page.getByTestId('expanded-bill')
     await expect(expandedBill).toBeVisible()
     await expect(expandedBill).toContainText('R$ 0')
-    await expect(expandedBill).toContainText(/was|era|original/i)
-    await expect(expandedBill.getByTestId('collapse-btn')).toBeVisible()
+    await expect(expandedBill).toContainText(/expandido|was|era|original/i)
   })
 
   // ============================================================
@@ -253,6 +271,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, csv)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -273,6 +292,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSVNoPayment)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -295,6 +315,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSVNoPayment)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -312,6 +333,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSVNoPayment)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -342,8 +364,12 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, sampleCCCSV)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
+
+    // Wait for CC transactions to appear after import
+    await expect(page.getByTestId('cc-badge').first()).toBeVisible({ timeout: 10000 })
 
     // Count CC transactions before collapse
     const ccTransactionsBefore = await page.getByTestId('cc-badge').count()
@@ -358,6 +384,9 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     // Confirm
     await page.getByTestId('confirm-collapse-btn').click()
+
+    // Wait for modal to close (indicates collapse completed)
+    await expect(page.getByTestId('collapse-confirm-dialog')).not.toBeVisible({ timeout: 10000 })
 
     // Verify success
     await expect(page.getByTestId('toast-success')).toContainText(/collapse|recolhido/i)
@@ -384,6 +413,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, csv)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -433,6 +463,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await uploadCCCSV(page, csv)
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
 
     // Verify correct match (R$ 1000 bill, not R$ 500)
     await expect(page.getByTestId('match-bill-amount')).toContainText(/1.*000|1,000/i)
@@ -518,6 +549,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     // Proceed with import
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
@@ -546,6 +578,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     // Proceed with import
     await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 

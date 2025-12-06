@@ -157,11 +157,13 @@ test.describe('M5: Custom Column Mapping', () => {
 		await page.getByTestId('bank-format-selector').click()
 
 		// Step 3: Verify all expected bank options are present
-		await expect(page.getByRole('option', { name: /auto/i })).toBeVisible()
-		await expect(page.getByRole('option', { name: /nubank/i })).toBeVisible()
-		await expect(page.getByRole('option', { name: /inter/i })).toBeVisible()
-		await expect(page.getByRole('option', { name: /ita[uú]/i })).toBeVisible()
-		await expect(page.getByRole('option', { name: /personalizado|custom/i })).toBeVisible()
+		// Use exact matching to avoid matching multiple options
+		await expect(page.getByRole('option', { name: 'Auto Detect' })).toBeVisible()
+		await expect(page.getByRole('option', { name: 'Nubank', exact: true })).toBeVisible()
+		await expect(page.getByRole('option', { name: 'Nubank Cartao de Credito' })).toBeVisible()
+		await expect(page.getByRole('option', { name: 'Banco Inter' })).toBeVisible()
+		await expect(page.getByRole('option', { name: 'Itau' })).toBeVisible()
+		await expect(page.getByRole('option', { name: 'Personalizado' })).toBeVisible()
 	})
 
 	test('M5-E2E-06g: Auto detect should be default bank format', async ({ page }) => {
@@ -194,9 +196,9 @@ test.describe('M5: Custom Column Mapping', () => {
 		// Step 3: Wait for preview
 		await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
 
-		// Step 4: Change bank format to Nubank
+		// Step 4: Change bank format to Nubank (exact match to avoid Nubank CC)
 		await page.getByTestId('bank-format-selector').click()
-		await page.getByRole('option', { name: /nubank/i }).click()
+		await page.getByRole('option', { name: 'Nubank', exact: true }).click()
 
 		// Step 5: Verify file is still loaded (preview should still be visible)
 		// Note: The actual re-parsing behavior depends on implementation

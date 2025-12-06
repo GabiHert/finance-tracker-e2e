@@ -17,9 +17,10 @@ async function globalSetup(config: FullConfig) {
   // Clean up test data to prevent accumulation between test runs
   // Note: category_rules has a unique constraint that includes soft-deleted records,
   // so we must use TRUNCATE CASCADE to truly clear all data including soft-deleted
+  // We also clean transactions to ensure M12 CC import tests start fresh
   console.log('Cleaning up test data...')
   try {
-    execSync('docker exec finance-tracker-postgres-e2e psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM group_members; DELETE FROM groups;"', { stdio: 'pipe' })
+    execSync('docker exec finance-tracker-postgres-e2e psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM transactions; DELETE FROM group_members; DELETE FROM groups;"', { stdio: 'pipe' })
     console.log('Test data cleaned successfully')
   } catch (error) {
     console.log('Note: Could not clean test data (may not exist yet)')

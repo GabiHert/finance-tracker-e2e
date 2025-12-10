@@ -19,11 +19,11 @@ echo ""
 
 cd "$PROJECT_ROOT"
 
-# Repository URLs
-BACKEND_REPO="git@github.com:GabiHert/finance-tracker-backend.git"
-FRONTEND_REPO="git@github.com:GabiHert/finance-tracker-frontend.git"
-INFRA_REPO="git@github.com:GabiHert/finance-tracker-infra.git"
-E2E_REPO="git@github.com:GabiHert/finance-tracker-e2e.git"
+# Repository URLs (HTTPS for universal access)
+BACKEND_REPO="https://github.com/GabiHert/finance-tracker-backend.git"
+FRONTEND_REPO="https://github.com/GabiHert/finance-tracker-frontend.git"
+INFRA_REPO="https://github.com/GabiHert/finance-tracker-infra.git"
+E2E_REPO="https://github.com/GabiHert/finance-tracker-e2e.git"
 
 # Function to clone or update a repository
 clone_or_update() {

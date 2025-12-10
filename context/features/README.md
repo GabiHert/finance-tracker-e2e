@@ -73,5 +73,7 @@ Feature-specific files extract and expand on relevant sections from these guides
 | Code | Name | Status |
 |------|------|--------|
 | M12-cc-import | Credit Card Statement Import | Specification Complete |
+| M13-category-trends | Category Expense Trends Chart | Specification Complete |
+| M14-email-notifications | Email Notifications with Resend | Specification Complete |
 
 *Features will be listed here as they are created.*

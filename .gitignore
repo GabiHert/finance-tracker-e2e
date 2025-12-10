@@ -1,1 +1,14 @@
+# Subrepositories - these are cloned separately
+backend/
+frontend/
+infra/
+e2e/
+
+# Test outputs
 tests/
+
+# OS files
+.DS_Store
+
+# Environment
+.env

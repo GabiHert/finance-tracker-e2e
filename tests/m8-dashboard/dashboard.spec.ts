@@ -203,8 +203,8 @@ test.describe('M8: Dashboard & Analytics', () => {
 			expect(trendPercent).not.toBe(MOCK_INCOME_CHANGE)
 
 			// Verify trend direction indicator matches sign
-			const hasUpIndicator = await incomeCard.locator('.text-green-500, [class*="positive"], [class*="up"]').isVisible().catch(() => false)
-			const hasDownIndicator = await incomeCard.locator('.text-red-500, [class*="negative"], [class*="down"]').isVisible().catch(() => false)
+			const hasUpIndicator = await incomeCard.locator('.text-green-500, [class*="positive"], [class*="up"]').isVisible().then(() => true, () => false)
+			const hasDownIndicator = await incomeCard.locator('.text-red-500, [class*="negative"], [class*="down"]').isVisible().then(() => true, () => false)
 
 			if (trendPercent > 0) {
 				// Positive income trend should show green/up (good)
@@ -228,8 +228,8 @@ test.describe('M8: Dashboard & Analytics', () => {
 			expect(trendPercent).not.toBe(MOCK_EXPENSES_CHANGE)
 
 			// For expenses: positive trend = bad (more spending), negative = good (less spending)
-			const hasUpIndicator = await expensesCard.locator('.text-red-500, [class*="negative"], [class*="bad"]').isVisible().catch(() => false)
-			const hasDownIndicator = await expensesCard.locator('.text-green-500, [class*="positive"], [class*="good"]').isVisible().catch(() => false)
+			const hasUpIndicator = await expensesCard.locator('.text-red-500, [class*="negative"], [class*="bad"]').isVisible().then(() => true, () => false)
+			const hasDownIndicator = await expensesCard.locator('.text-green-500, [class*="positive"], [class*="good"]').isVisible().then(() => true, () => false)
 
 			if (trendPercent > 0) {
 				// More expenses = bad = should show red
@@ -320,7 +320,7 @@ test.describe('M8: Dashboard & Analytics', () => {
 		const emptyStateAlt = recentTransactions.locator('[class*="empty"], [class*="no-data"]')
 
 		const hasTransactions = (await transactionItems.count()) > 0
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
+		const hasEmptyState = await emptyState.isVisible().then(() => true, () => false)
 		const hasEmptyStateAlt = (await emptyStateAlt.count()) > 0
 
 		// Either transactions or empty state should be visible, or section is simply empty with no special state
@@ -346,7 +346,8 @@ test.describe('M8: Dashboard & Analytics', () => {
 		const alertsBanner = page.getByTestId('alerts-banner')
 
 		// If alerts banner exists and is visible
-		if (await alertsBanner.isVisible().catch(() => false)) {
+		const alertsVisible = await alertsBanner.isVisible().then(() => true, () => false)
+		if (alertsVisible) {
 			// Verify it contains warning content about goals
 			await expect(alertsBanner).toContainText(/limite|meta|goal|excedido|over/i)
 

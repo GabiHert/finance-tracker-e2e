@@ -42,7 +42,7 @@ test.describe('M11: Toast Notifications', () => {
 
 		// Step 5: Check for toast notification
 		const successToast = page.getByTestId('toast-success').or(page.locator('[role="alert"]').filter({ hasText: /sucesso|success|criado|created|salvo|saved/i }))
-		const toastVisible = await successToast.first().isVisible().catch(() => false)
+		const toastVisible = await successToast.first().isVisible().then(() => true, () => false)
 
 		// Transaction was created (modal closed), now verify toast if visible
 		if (toastVisible) {
@@ -77,7 +77,7 @@ test.describe('M11: Toast Notifications', () => {
 
 		// Step 3: Check for toast
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
-		const toastVisible = await toast.first().isVisible().catch(() => false)
+		const toastVisible = await toast.first().isVisible().then(() => true, () => false)
 
 		// TODO: Skip toast auto-dismiss test when toasts aren't implemented
 		if (!toastVisible) {
@@ -115,7 +115,7 @@ test.describe('M11: Toast Notifications', () => {
 
 		// Step 3: Check for toast
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
-		const toastVisible = await toast.first().isVisible().catch(() => false)
+		const toastVisible = await toast.first().isVisible().then(() => true, () => false)
 
 		// TODO: Skip toast manual dismiss test when toasts aren't implemented
 		if (!toastVisible) {
@@ -154,10 +154,8 @@ test.describe('M11: Toast Notifications', () => {
 		const inlineError = page.getByTestId('amount-error').or(page.getByText(/valor|amount|obrigat[oó]rio|required/i))
 
 		// Either error toast or inline validation error should appear
-		const hasError = await errorToast.first().isVisible().catch(() => false) ||
-			await inlineError.first().isVisible().catch(() => false)
-
-		expect(hasError).toBeTruthy()
+		const errorIndicator = errorToast.first().or(inlineError.first())
+		await expect(errorIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('M11-E2E-10e: Should display toast at correct position', async ({ page }) => {
@@ -185,7 +183,7 @@ test.describe('M11: Toast Notifications', () => {
 
 		// Step 3: Check for toast
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
-		const toastVisible = await toast.first().isVisible().catch(() => false)
+		const toastVisible = await toast.first().isVisible().then(() => true, () => false)
 
 		// TODO: Skip toast position test when toasts aren't implemented
 		if (!toastVisible) {
@@ -233,14 +231,15 @@ test.describe('M11: Toast Notifications', () => {
 
 		// Step 3: Check for toast with icon
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
-		const toastVisible = await toast.first().isVisible().catch(() => false)
+		const toastVisible = await toast.first().isVisible().then(() => true, () => false)
 
 		// Transaction was created (modal closed is the primary success indicator)
 		if (toastVisible) {
 			// Step 4: Check for success icon
 			const toastIcon = toast.first().getByTestId('toast-icon').or(toast.first().locator('svg'))
 			// If toast has an icon, verify it's visible
-			if (await toastIcon.first().isVisible().catch(() => false)) {
+			const iconVisible = await toastIcon.first().isVisible().then(() => true, () => false)
+			if (iconVisible) {
 				await expect(toastIcon.first()).toBeVisible()
 			}
 		}

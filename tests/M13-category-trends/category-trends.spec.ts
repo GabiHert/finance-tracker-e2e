@@ -52,12 +52,11 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		const chart = page.getByTestId('category-trends-chart')
 		const emptyState = page.getByTestId('category-trends-empty')
 
-		const hasChart = await chart.isVisible().catch(() => false)
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
-
 		// Either chart or empty state should be visible
-		expect(hasChart || hasEmptyState).toBeTruthy()
+		const chartIndicator = chart.or(emptyState)
+		await expect(chartIndicator).toBeVisible({ timeout: 5000 })
 
+		const hasChart = await chart.isVisible()
 		if (hasChart) {
 			// Verify SVG chart is rendered
 			await expect(chart.locator('svg')).toBeVisible()
@@ -111,7 +110,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		const chart = page.getByTestId('category-trends-chart')
 
 		// Skip if no chart (empty state)
-		if (!(await chart.isVisible().catch(() => false))) {
+		const chartVisible = await chart.isVisible().then(() => true, () => false)
+		if (!chartVisible) {
 			test.skip()
 			return
 		}
@@ -146,7 +146,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		const chart = page.getByTestId('category-trends-chart')
 
 		// Skip if no chart
-		if (!(await chart.isVisible().catch(() => false))) {
+		const chartVisible = await chart.isVisible().then(() => true, () => false)
+		if (!chartVisible) {
 			test.skip()
 			return
 		}
@@ -171,7 +172,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		const chart = page.getByTestId('category-trends-chart')
 
 		// Skip if no chart
-		if (!(await chart.isVisible().catch(() => false))) {
+		const chartVisible = await chart.isVisible().then(() => true, () => false)
+		if (!chartVisible) {
 			test.skip()
 			return
 		}
@@ -195,8 +197,9 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		await expect(chartSection).toBeVisible()
 
 		const emptyState = page.getByTestId('category-trends-empty')
+		const emptyStateVisible = await emptyState.isVisible().then(() => true, () => false)
 
-		if (await emptyState.isVisible().catch(() => false)) {
+		if (emptyStateVisible) {
 			// Verify empty state content
 			await expect(emptyState).toContainText(/sem despesas|no expenses/i)
 		}
@@ -255,7 +258,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 
 		// Error state should be visible
 		const errorState = page.getByTestId('category-trends-error')
-		if (await errorState.isVisible().catch(() => false)) {
+		const errorStateVisible = await errorState.isVisible().then(() => true, () => false)
+		if (errorStateVisible) {
 			await expect(errorState).toContainText(/erro|error/i)
 
 			// Retry button should exist
@@ -268,7 +272,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 		const legend = page.getByTestId('category-trends-legend')
 
 		// Skip if no chart visible
-		if (!(await legend.isVisible().catch(() => false))) {
+		const legendVisible = await legend.isVisible().then(() => true, () => false)
+		if (!legendVisible) {
 			test.skip()
 			return
 		}
@@ -300,7 +305,8 @@ test.describe('M13: Category Expense Trends Chart', () => {
 
 		// Chart should adapt to viewport
 		const chart = page.getByTestId('category-trends-chart')
-		if (await chart.isVisible().catch(() => false)) {
+		const chartVisible = await chart.isVisible().then(() => true, () => false)
+		if (chartVisible) {
 			const chartBox = await chart.boundingBox()
 			expect(chartBox?.width).toBeLessThanOrEqual(375)
 		}

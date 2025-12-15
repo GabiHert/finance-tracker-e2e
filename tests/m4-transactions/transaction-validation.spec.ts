@@ -54,14 +54,13 @@ test.describe('M4: Transaction Validation', () => {
 			// Step 5: Check for validation error or modal stays open
 			const amountError = page.getByTestId('amount-error').or(page.getByTestId('input-error-message'))
 			const errorText = page.getByText(/obrigatório|required|valor|amount/i)
-			const modalStillOpen = await page.getByRole('dialog').isVisible()
+			const dialog = page.getByRole('dialog')
 
-			const hasValidation =
-				(await amountError.isVisible().catch(() => false)) ||
-				(await errorText.first().isVisible().catch(() => false)) ||
-				modalStillOpen
-
-			expect(hasValidation).toBeTruthy()
+			// Either validation error shown or modal stays open (save blocked)
+			const validationIndicator = amountError
+				.or(errorText.first())
+				.or(dialog)
+			await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 		} finally {
 			await cleanupIsolatedTestData(page, testId)
 		}
@@ -104,14 +103,13 @@ test.describe('M4: Transaction Validation', () => {
 			// Step 5: Check for validation error or modal stays open
 			const amountError = page.getByTestId('amount-error')
 			const errorText = page.getByText(/zero|valor|maior|greater|inválido|invalid/i)
-			const modalStillOpen = await page.getByRole('dialog').isVisible()
+			const dialog = page.getByRole('dialog')
 
-			const hasValidation =
-				(await amountError.isVisible().catch(() => false)) ||
-				(await errorText.first().isVisible().catch(() => false)) ||
-				modalStillOpen
-
-			expect(hasValidation).toBeTruthy()
+			// Either validation error shown or modal stays open (save blocked)
+			const validationIndicator = amountError
+				.or(errorText.first())
+				.or(dialog)
+			await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 		} finally {
 			await cleanupIsolatedTestData(page, testId)
 		}
@@ -158,17 +156,16 @@ test.describe('M4: Transaction Validation', () => {
 
 				const amountError = page.getByTestId('amount-error')
 				const errorText = page.getByText(/negativo|negative|inválido|invalid/i)
-				const modalStillOpen = await page.getByRole('dialog').isVisible()
+				const dialog = page.getByRole('dialog')
 
-				const hasValidation =
-					(await amountError.isVisible().catch(() => false)) ||
-					(await errorText.first().isVisible().catch(() => false)) ||
-					modalStillOpen
-
-				expect(hasValidation).toBeTruthy()
+				// Either validation error shown or modal stays open (save blocked)
+				const validationIndicator = amountError
+					.or(errorText.first())
+					.or(dialog)
+				await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 			} else {
 				// Input sanitized - negative sign removed
-				expect(true).toBeTruthy()
+				expect(currentValue).not.toContain('-')
 			}
 		} finally {
 			await cleanupIsolatedTestData(page, testId)
@@ -273,16 +270,19 @@ test.describe('M4: Transaction Validation', () => {
 			const descriptionError = page.getByTestId('description-error')
 			const errorText = page.getByText(/máximo|maximum|longo|long|limite|limit|caractere|character/i)
 			const currentValue = await descriptionInput.inputValue()
-			const modalStillOpen = await page.getByRole('dialog').isVisible()
+			const dialog = page.getByRole('dialog')
 
 			// Either error shown, input truncated, or modal stays open
-			const hasValidation =
-				(await descriptionError.isVisible().catch(() => false)) ||
-				(await errorText.first().isVisible().catch(() => false)) ||
-				currentValue.length < 1001 ||
-				modalStillOpen
-
-			expect(hasValidation).toBeTruthy()
+			if (currentValue.length < 1001) {
+				// Input was truncated - validation worked
+				expect(currentValue.length).toBeLessThan(1001)
+			} else {
+				// Either validation error shown or modal stays open
+				const validationIndicator = descriptionError
+					.or(errorText.first())
+					.or(dialog)
+				await expect(validationIndicator).toBeVisible({ timeout: 3000 })
+			}
 		} finally {
 			await cleanupIsolatedTestData(page, testId)
 		}
@@ -318,14 +318,13 @@ test.describe('M4: Transaction Validation', () => {
 			// Step 4: Check for validation error or modal stays open
 			const categoryError = page.getByTestId('category-error')
 			const errorText = page.getByText(/categoria|category|selecione|select/i)
-			const modalStillOpen = await page.getByRole('dialog').isVisible()
+			const dialog = page.getByRole('dialog')
 
-			const hasValidation =
-				(await categoryError.isVisible().catch(() => false)) ||
-				(await errorText.first().isVisible().catch(() => false)) ||
-				modalStillOpen
-
-			expect(hasValidation).toBeTruthy()
+			// Either validation error shown or modal stays open (save blocked)
+			const validationIndicator = categoryError
+				.or(errorText.first())
+				.or(dialog)
+			await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 		} finally {
 			await cleanupIsolatedTestData(page, testId)
 		}
@@ -407,15 +406,16 @@ test.describe('M4: Transaction Validation', () => {
 			await page.getByTestId('modal-save-btn').click()
 
 			// Step 4: Check result - either sanitized, rejected, or saved safely
-			const modalClosed = !(await page.getByRole('dialog').isVisible().catch(() => false))
+			const dialog = page.getByRole('dialog')
+			const modalClosed = !(await dialog.isVisible())
 
 			if (modalClosed) {
 				// Transaction was saved - verify XSS is not executed
 				const pageContent = await page.content()
 				expect(pageContent).not.toContain('<script>alert(1)')
 			} else {
-				// Validation prevented saving - also acceptable
-				expect(true).toBeTruthy()
+				// Validation prevented saving - modal still open is acceptable
+				await expect(dialog).toBeVisible()
 			}
 		} finally {
 			await cleanupIsolatedTestData(page, testId)

@@ -66,7 +66,7 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		// Step 2: Check if Nubank format is available (use exact match to avoid CC option)
 		await page.getByTestId('bank-format-selector').click()
 		const nubankOption = page.getByRole('option', { name: 'Nubank', exact: true })
-		const hasNubank = await nubankOption.isVisible().catch(() => false)
+		const hasNubank = await nubankOption.isVisible().then(() => true, () => false)
 
 		if (hasNubank) {
 			await nubankOption.click()
@@ -115,7 +115,7 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		// Step 2: Check if Inter format is available
 		await page.getByTestId('bank-format-selector').click()
 		const interOption = page.getByRole('option', { name: /inter/i })
-		const hasInter = await interOption.isVisible().catch(() => false)
+		const hasInter = await interOption.isVisible().then(() => true, () => false)
 
 		if (hasInter) {
 			await interOption.click()
@@ -245,7 +245,8 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		if (await bankFormatSelector.isVisible()) {
 			await bankFormatSelector.click()
 			const customOption = page.getByRole('option', { name: /personalizado|custom/i })
-			if (await customOption.isVisible().catch(() => false)) {
+			const customVisible = await customOption.isVisible().then(() => true, () => false)
+			if (customVisible) {
 				await customOption.click()
 			} else {
 				await page.keyboard.press('Escape')
@@ -318,7 +319,7 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		const previewTable = page.getByTestId('import-preview-table')
 
 		// Use a single waitFor with reasonable timeout
-		const previewVisible = await previewTable.isVisible({ timeout: 5000 }).catch(() => false)
+		const previewVisible = await previewTable.isVisible().then(() => true, () => false)
 
 		// TODO: Skip full import test when preview isn't available
 		if (!previewVisible) {
@@ -338,9 +339,12 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 		const confirmBtn = page.getByTestId('import-confirm-btn')
 		const importBtn = page.getByRole('button', { name: /importar|import/i })
 
-		if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+		const confirmVisible = await confirmBtn.isVisible().then(() => true, () => false)
+		const importVisible = await importBtn.isVisible().then(() => true, () => false)
+
+		if (confirmVisible) {
 			await confirmBtn.click()
-		} else if (await importBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+		} else if (importVisible) {
 			await importBtn.click()
 		}
 
@@ -350,7 +354,8 @@ test.describe('M5: OFX Import and Advanced Features', () => {
 
 		// Close modal if still open
 		const dialog = page.getByRole('dialog')
-		if (await dialog.isVisible({ timeout: 1000 }).catch(() => false)) {
+		const dialogVisible = await dialog.isVisible().then(() => true, () => false)
+		if (dialogVisible) {
 			await page.keyboard.press('Escape')
 		}
 

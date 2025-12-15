@@ -81,11 +81,10 @@ test.describe('M9: Group Invite User Validation', () => {
 		const confirmationText = page.getByText(/n[aã]o.*usu[aá]rio|n[aã]o.*cadastrado|not.*registered|not.*user/i)
 		const platformInviteText = page.getByText(/convite.*plataforma|invite.*platform|cadastrar/i)
 
-		const hasConfirmation = await confirmationDialog.isVisible().catch(() => false) ||
-			await confirmationText.isVisible().catch(() => false) ||
-			await platformInviteText.isVisible().catch(() => false)
-
-		expect(hasConfirmation).toBeTruthy()
+		const confirmationIndicator = confirmationDialog
+			.or(confirmationText)
+			.or(platformInviteText)
+		await expect(confirmationIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('M9-E2E-11b: Should proceed directly when inviting existing registered user', async ({ page }) => {
@@ -162,16 +161,17 @@ test.describe('M9: Group Invite User Validation', () => {
 		// Should either show success toast/close modal OR show error (already member, etc)
 		// But NOT show non-user confirmation dialog
 		const confirmationDialog = page.getByTestId('confirm-non-user-dialog')
-		const noUserConfirmation = !(await confirmationDialog.isVisible({ timeout: 2000 }).catch(() => false))
+		const noUserConfirmation = !(await confirmationDialog.isVisible().then(() => true, () => false))
 
 		// Check for success (modal closed or toast) or expected error
-		const modalClosed = !(await dialog.isVisible().catch(() => true))
+		const modalClosed = !(await dialog.isVisible())
 		const successToast = page.getByTestId('toast-success')
 		const errorMessage = page.getByText(/j[aá].*membro|already.*member|enviado|sent/i)
 
-		const hasExpectedResult = modalClosed ||
-			await successToast.isVisible().catch(() => false) ||
-			await errorMessage.isVisible().catch(() => false)
+		// Either modal closed or a result message visible
+		const resultIndicator = successToast.or(errorMessage)
+		const hasResultMessage = await resultIndicator.isVisible().then(() => true, () => false)
+		const hasExpectedResult = modalClosed || hasResultMessage
 
 		expect(noUserConfirmation).toBeTruthy()
 		expect(hasExpectedResult).toBeTruthy()
@@ -236,11 +236,12 @@ test.describe('M9: Group Invite User Validation', () => {
 
 		const successToast = page.getByTestId('toast-success')
 		const successText = page.getByText(/enviado|sent|sucesso|success/i)
-		const modalClosed = !(await dialog.isVisible({ timeout: 2000 }).catch(() => true))
+		const modalClosed = !(await dialog.isVisible())
 
-		const hasSuccess = modalClosed ||
-			await successToast.isVisible().catch(() => false) ||
-			await successText.isVisible().catch(() => false)
+		// Either modal closed or success message visible
+		const successIndicator = successToast.or(successText)
+		const hasSuccessMessage = await successIndicator.isVisible().then(() => true, () => false)
+		const hasSuccess = modalClosed || hasSuccessMessage
 
 		expect(hasSuccess).toBeTruthy()
 	})
@@ -307,7 +308,7 @@ test.describe('M9: Group Invite User Validation', () => {
 
 		// Step 9: Verify confirmation dialog closed but invite modal may still be open
 		const confirmationDialog = page.getByTestId('confirm-non-user-dialog')
-		const confirmationClosed = !(await confirmationDialog.isVisible({ timeout: 2000 }).catch(() => false))
+		const confirmationClosed = !(await confirmationDialog.isVisible().then(() => true, () => false))
 
 		// The original invite modal should still be available (either open or closeable)
 		expect(confirmationClosed).toBeTruthy()

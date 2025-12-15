@@ -37,17 +37,18 @@ test.describe('M3: Category Validation', () => {
     // Step 3: Check for validation error or modal stays open
     const nameError = page.getByTestId('name-error')
     const errorText = page.getByText(/obrigatório|required|nome é|name is/i)
-    const modalStillOpen = await page.getByRole('dialog').isVisible()
+    const dialog = page.getByRole('dialog')
 
-    const hasValidation =
-      (await nameError.isVisible().catch(() => false)) ||
-      (await errorText.first().isVisible().catch(() => false)) ||
-      modalStillOpen
+    // Either validation error shown or modal stays open (save blocked)
+    const validationIndicator = nameError
+      .or(errorText.first())
+      .or(dialog)
+    await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 
-    expect(hasValidation).toBeTruthy()
-
-    // Close modal
-    await page.getByRole('button', { name: /cancel/i }).click()
+    // Close modal if still open
+    if (await dialog.isVisible()) {
+      await page.getByRole('button', { name: /cancel/i }).click()
+    }
   })
 
   test('M3-VAL-002: Should reject whitespace-only category name', async ({ page }) => {
@@ -66,17 +67,18 @@ test.describe('M3: Category Validation', () => {
     // Step 3: Check for validation error or modal stays open
     const nameError = page.getByTestId('name-error')
     const errorText = page.getByText(/obrigatório|required|inválido|invalid/i)
-    const modalStillOpen = await page.getByRole('dialog').isVisible()
+    const dialog = page.getByRole('dialog')
 
-    const hasValidation =
-      (await nameError.isVisible().catch(() => false)) ||
-      (await errorText.first().isVisible().catch(() => false)) ||
-      modalStillOpen
+    // Either validation error shown or modal stays open (save blocked)
+    const validationIndicator = nameError
+      .or(errorText.first())
+      .or(dialog)
+    await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 
-    expect(hasValidation).toBeTruthy()
-
-    // Close modal
-    await page.getByRole('button', { name: /cancel/i }).click()
+    // Close modal if still open
+    if (await dialog.isVisible()) {
+      await page.getByRole('button', { name: /cancel/i }).click()
+    }
   })
 
   test('M3-VAL-003: Should reject category name exceeding max length', async ({ page }) => {
@@ -99,19 +101,24 @@ test.describe('M3: Category Validation', () => {
     const nameError = page.getByTestId('name-error')
     const errorText = page.getByText(/máximo|maximum|longo|long|limite|limit/i)
     const currentValue = await nameInput.inputValue()
-    const modalStillOpen = await page.getByRole('dialog').isVisible()
+    const dialog = page.getByRole('dialog')
 
     // Either error shown, input truncated, or modal stays open
-    const hasValidation =
-      (await nameError.isVisible().catch(() => false)) ||
-      (await errorText.first().isVisible().catch(() => false)) ||
-      currentValue.length < 256 ||
-      modalStillOpen
+    if (currentValue.length < 256) {
+      // Input was truncated - validation worked
+      expect(currentValue.length).toBeLessThan(256)
+    } else {
+      // Either validation error shown or modal stays open
+      const validationIndicator = nameError
+        .or(errorText.first())
+        .or(dialog)
+      await expect(validationIndicator).toBeVisible({ timeout: 3000 })
+    }
 
-    expect(hasValidation).toBeTruthy()
-
-    // Close modal
-    await page.getByRole('button', { name: /cancel/i }).click()
+    // Close modal if still open
+    if (await dialog.isVisible()) {
+      await page.getByRole('button', { name: /cancel/i }).click()
+    }
   })
 
   test('M3-VAL-004: Should handle duplicate category name', async ({ page }) => {
@@ -159,18 +166,17 @@ test.describe('M3: Category Validation', () => {
       const duplicateError = page.getByTestId('duplicate-error')
       const errorText = page.getByText(/existe|exists|duplicado|duplicate|já cadastrada/i)
       const errorAlert = page.locator('[role="alert"]')
-      const modalStillOpen = await page.getByRole('dialog').isVisible()
+      const dialog = page.getByRole('dialog')
 
-      const hasDuplicateHandling =
-        (await duplicateError.isVisible().catch(() => false)) ||
-        (await errorText.first().isVisible().catch(() => false)) ||
-        (await errorAlert.first().isVisible().catch(() => false)) ||
-        modalStillOpen
-
-      expect(hasDuplicateHandling).toBeTruthy()
+      // Either duplicate error shown or modal stays open (save blocked)
+      const duplicateIndicator = duplicateError
+        .or(errorText.first())
+        .or(errorAlert.first())
+        .or(dialog)
+      await expect(duplicateIndicator).toBeVisible({ timeout: 5000 })
 
       // Close modal if still open
-      if (modalStillOpen) {
+      if (await dialog.isVisible()) {
         await page.getByRole('button', { name: /cancel/i }).click()
       }
     } finally {
@@ -204,7 +210,8 @@ test.describe('M3: Category Validation', () => {
       await page.getByTestId('save-category-btn').click()
 
       // Step 3: Check result - either sanitized, rejected, or saved safely
-      const modalClosed = !(await page.getByRole('dialog').isVisible().catch(() => false))
+      const dialog = page.getByRole('dialog')
+      const modalClosed = !(await dialog.isVisible())
       const nameError = page.getByTestId('name-error')
       const errorText = page.getByText(/inválido|invalid|caractere|character/i)
 
@@ -213,11 +220,9 @@ test.describe('M3: Category Validation', () => {
         const pageContent = await page.content()
         expect(pageContent).not.toContain('<script>alert(1)')
       } else {
-        // Validation prevented saving
-        const hasValidation =
-          (await nameError.isVisible().catch(() => false)) ||
-          (await errorText.first().isVisible().catch(() => false))
-        expect(hasValidation).toBeTruthy()
+        // Validation prevented saving - check for error indicators
+        const validationIndicator = nameError.or(errorText.first()).or(dialog)
+        await expect(validationIndicator).toBeVisible({ timeout: 3000 })
 
         // Close modal
         await page.getByRole('button', { name: /cancel/i }).click()
@@ -252,20 +257,17 @@ test.describe('M3: Category Validation', () => {
       // Step 5: Check if type is required or has default
       const typeError = page.getByTestId('type-error')
       const errorText = page.getByText(/tipo|type|selecione|select/i)
-      const modalClosed = !(await page.getByRole('dialog').isVisible())
-      const pageNotCrashed = await page.locator('body').isVisible()
+      const dialog = page.getByRole('dialog')
+      const pageBody = page.locator('body')
 
       // Either type error shown, modal closed (type has default), or page handles gracefully
-      const hasTypeHandling =
-        (await typeError.isVisible().catch(() => false)) ||
-        (await errorText.first().isVisible().catch(() => false)) ||
-        modalClosed ||
-        pageNotCrashed
-
-      expect(hasTypeHandling).toBeTruthy()
+      const typeHandlingIndicator = typeError
+        .or(errorText.first())
+        .or(pageBody)
+      await expect(typeHandlingIndicator).toBeVisible({ timeout: 3000 })
 
       // Close modal if still open
-      if (await page.getByRole('dialog').isVisible()) {
+      if (await dialog.isVisible()) {
         await page.getByRole('button', { name: /cancel/i }).click()
       }
     } finally {

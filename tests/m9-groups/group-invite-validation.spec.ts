@@ -45,7 +45,6 @@ test.describe('M9: Group Invite User Validation', () => {
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
 		await expect(membersTab).toBeVisible({ timeout: 5000 })
 		await membersTab.click()
-		await page.waitForTimeout(500) // Wait for tab content to render
 
 		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
@@ -78,7 +77,6 @@ test.describe('M9: Group Invite User Validation', () => {
 		}
 
 		// Step 7: Verify confirmation dialog appears
-		await page.waitForTimeout(500)
 		const confirmationDialog = page.getByTestId('confirm-non-user-dialog')
 		const confirmationText = page.getByText(/n[aã]o.*usu[aá]rio|n[aã]o.*cadastrado|not.*registered|not.*user/i)
 		const platformInviteText = page.getByText(/convite.*plataforma|invite.*platform|cadastrar/i)
@@ -105,7 +103,6 @@ test.describe('M9: Group Invite User Validation', () => {
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
 		await expect(membersTab).toBeVisible({ timeout: 5000 })
 		await membersTab.click()
-		await page.waitForTimeout(500)
 
 		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
@@ -159,12 +156,13 @@ test.describe('M9: Group Invite User Validation', () => {
 		}
 
 		// Step 8: Verify no confirmation dialog appears (success or error directly)
-		await page.waitForTimeout(1000)
+		// Wait briefly for any dialog response
+		await page.waitForLoadState('networkidle')
 
 		// Should either show success toast/close modal OR show error (already member, etc)
 		// But NOT show non-user confirmation dialog
 		const confirmationDialog = page.getByTestId('confirm-non-user-dialog')
-		const noUserConfirmation = !(await confirmationDialog.isVisible().catch(() => false))
+		const noUserConfirmation = !(await confirmationDialog.isVisible({ timeout: 2000 }).catch(() => false))
 
 		// Check for success (modal closed or toast) or expected error
 		const modalClosed = !(await dialog.isVisible().catch(() => true))
@@ -192,7 +190,6 @@ test.describe('M9: Group Invite User Validation', () => {
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
 		await expect(membersTab).toBeVisible({ timeout: 5000 })
 		await membersTab.click()
-		await page.waitForTimeout(500)
 
 		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
@@ -224,10 +221,7 @@ test.describe('M9: Group Invite User Validation', () => {
 			await sendBtnAlt.click()
 		}
 
-		// Step 7: Wait for confirmation dialog
-		await page.waitForTimeout(500)
-
-		// Step 8: Confirm sending the invite to non-user
+		// Step 7-8: Wait for and confirm sending the invite to non-user
 		const confirmBtn = page.getByTestId('confirm-send-invite-btn')
 		const confirmBtnAlt = page.getByRole('button', { name: /sim.*enviar|confirmar|confirm|yes.*send/i })
 
@@ -238,11 +232,11 @@ test.describe('M9: Group Invite User Validation', () => {
 		}
 
 		// Step 9: Verify success (modal closes or success message)
-		await page.waitForTimeout(1000)
+		await page.waitForLoadState('networkidle')
 
 		const successToast = page.getByTestId('toast-success')
 		const successText = page.getByText(/enviado|sent|sucesso|success/i)
-		const modalClosed = !(await dialog.isVisible().catch(() => true))
+		const modalClosed = !(await dialog.isVisible({ timeout: 2000 }).catch(() => true))
 
 		const hasSuccess = modalClosed ||
 			await successToast.isVisible().catch(() => false) ||
@@ -264,7 +258,6 @@ test.describe('M9: Group Invite User Validation', () => {
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
 		await expect(membersTab).toBeVisible({ timeout: 5000 })
 		await membersTab.click()
-		await page.waitForTimeout(500)
 
 		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
@@ -296,10 +289,7 @@ test.describe('M9: Group Invite User Validation', () => {
 			await sendBtnAlt.click()
 		}
 
-		// Step 7: Wait for confirmation dialog
-		await page.waitForTimeout(500)
-
-		// Step 8: Click cancel on the confirmation dialog
+		// Step 7-8: Click cancel on the confirmation dialog
 		const cancelBtn = page.getByTestId('cancel-non-user-invite-btn')
 		const cancelBtnAlt = page.getByRole('button', { name: /cancelar|cancel|n[aã]o/i })
 
@@ -316,10 +306,8 @@ test.describe('M9: Group Invite User Validation', () => {
 		}
 
 		// Step 9: Verify confirmation dialog closed but invite modal may still be open
-		await page.waitForTimeout(300)
-
 		const confirmationDialog = page.getByTestId('confirm-non-user-dialog')
-		const confirmationClosed = !(await confirmationDialog.isVisible().catch(() => false))
+		const confirmationClosed = !(await confirmationDialog.isVisible({ timeout: 2000 }).catch(() => false))
 
 		// The original invite modal should still be available (either open or closeable)
 		expect(confirmationClosed).toBeTruthy()

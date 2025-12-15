@@ -29,16 +29,11 @@ test.describe('M10: Theme Toggle', () => {
 			// Step 4: Toggle theme
 			await themeToggle.click()
 
-			// Step 5: Wait for theme change
-			await page.waitForTimeout(300)
-
-			// Step 6: Verify theme changed
-			const newClass = await htmlElement.getAttribute('class')
-
+			// Step 5: Wait for theme change and verify
 			if (isDarkInitially) {
-				expect(newClass).not.toContain('dark')
+				await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
 			} else {
-				expect(newClass).toContain('dark')
+				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 			}
 		} else if (await themeSelector.isVisible()) {
 			// Alternative: theme selector dropdown
@@ -50,16 +45,14 @@ test.describe('M10: Theme Toggle', () => {
 			// Select dark mode
 			if (await darkOption.isVisible()) {
 				await darkOption.click()
-				await page.waitForTimeout(300)
-				await expect(page.locator('html')).toHaveClass(/dark/)
+				await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 3000 })
 			}
 
 			// Select light mode
 			await themeSelector.click()
 			if (await lightOption.isVisible()) {
 				await lightOption.click()
-				await page.waitForTimeout(300)
-				await expect(page.locator('html')).not.toHaveClass(/dark/)
+				await expect(page.locator('html')).not.toHaveClass(/dark/, { timeout: 3000 })
 			}
 		}
 	})
@@ -81,11 +74,10 @@ test.describe('M10: Theme Toggle', () => {
 			// If not dark, toggle to dark
 			if (!isDarkInitially) {
 				await themeToggle.click()
-				await page.waitForTimeout(300)
 			}
 
 			// Step 3: Verify dark mode is active
-			await expect(htmlElement).toHaveClass(/dark/)
+			await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 
 			// Step 4: Reload the page
 			await page.reload()
@@ -95,11 +87,11 @@ test.describe('M10: Theme Toggle', () => {
 
 			// Step 6: Toggle back to light mode
 			await page.getByTestId('theme-toggle').click()
-			await page.waitForTimeout(300)
+			await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
 
 			// Step 7: Reload and verify light mode persisted
 			await page.reload()
-			await expect(htmlElement).not.toHaveClass(/dark/)
+			await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
 		}
 	})
 
@@ -117,7 +109,7 @@ test.describe('M10: Theme Toggle', () => {
 			const currentClass = await htmlElement.getAttribute('class')
 			if (!currentClass?.includes('dark')) {
 				await themeToggle.click()
-				await page.waitForTimeout(500)
+				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 			}
 		} else if (await themeSelector.isVisible()) {
 			// Use theme selector dropdown
@@ -125,7 +117,7 @@ test.describe('M10: Theme Toggle', () => {
 			const darkOption = page.getByRole('option', { name: /dark|escuro/i })
 			if (await darkOption.isVisible()) {
 				await darkOption.click()
-				await page.waitForTimeout(500)
+				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 			}
 		}
 
@@ -170,7 +162,7 @@ test.describe('M10: Theme Toggle', () => {
 			const currentClass = await htmlElement.getAttribute('class')
 			if (currentClass?.includes('dark')) {
 				await themeToggle.click()
-				await page.waitForTimeout(300)
+				await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
 			}
 		}
 

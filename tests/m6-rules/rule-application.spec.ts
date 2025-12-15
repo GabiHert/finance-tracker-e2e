@@ -128,8 +128,8 @@ test.describe('M6: Rule Application', () => {
 		const descriptionInput = modalBody.getByTestId('transaction-description')
 		await descriptionInput.fill('NETFLIX SUBSCRIPTION')
 
-		// Step 4: Wait for rule matching
-		await page.waitForTimeout(500)
+		// Step 4: Wait for rule matching (debounce + API call)
+		await page.waitForLoadState('networkidle')
 
 		// Step 5: Check if category selector exists (auto-suggestion may not be implemented)
 		const categorySelector = modalBody.getByTestId('transaction-category')
@@ -154,8 +154,8 @@ test.describe('M6: Rule Application', () => {
 		const modalBody = page.getByTestId('modal-body')
 		await modalBody.getByTestId('transaction-description').fill('SPOTIFY PREMIUM')
 
-		// Step 4: Wait for matching
-		await page.waitForTimeout(500)
+		// Step 4: Wait for matching (debounce + API call)
+		await page.waitForLoadState('networkidle')
 
 		// Step 5: Verify match (if category is auto-filled, rule matched)
 		const categorySelector = modalBody.getByTestId('transaction-category')
@@ -295,7 +295,7 @@ test.describe('M6: Rule Application', () => {
 				const secondHandle = dragHandles.nth(1)
 				const firstRule = ruleRows.first()
 				await secondHandle.dragTo(firstRule)
-				await page.waitForTimeout(500)
+				await page.waitForLoadState('networkidle')
 			}
 		}
 
@@ -307,8 +307,8 @@ test.describe('M6: Rule Application', () => {
 		const modalBody = page.getByTestId('modal-body')
 		await modalBody.getByTestId('transaction-description').fill(`${specificPattern} DELIVERY`)
 
-		// Step 5: Wait for rule matching
-		await page.waitForTimeout(500)
+		// Step 5: Wait for rule matching (debounce + API call)
+		await page.waitForLoadState('networkidle')
 
 		// Step 6: Verify a category was suggested (rule matching worked)
 		const categorySelector = modalBody.getByTestId('transaction-category')
@@ -332,10 +332,7 @@ test.describe('M6: Rule Application', () => {
 		await page.getByRole('option', { name: /cont[eé]m/i }).click()
 		await page.getByTestId('pattern-input').fill('DUPLICATE_TEST')
 
-		// Step 3: Wait for warning to appear
-		await page.waitForTimeout(300)
-
-		// Step 4: Check for duplicate warning (if implemented)
+		// Step 3-4: Check for duplicate warning (if implemented)
 		const duplicateWarning = page.getByTestId('duplicate-pattern-warning')
 		if (await duplicateWarning.isVisible()) {
 			await expect(duplicateWarning).toContainText(/duplicate|existente|já existe/i)
@@ -443,11 +440,9 @@ test.describe('M6: Rule Application', () => {
 		await page.getByTestId('save-rule-btn').click()
 		// Wait for rule creation to complete
 		await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 15000 })
+		await page.waitForLoadState('networkidle')
 
 		// Step 5: Verify matching transactions now have the category (via API)
-		// Give a moment for backend to apply the rule
-		await page.waitForTimeout(500)
-
 		const txListResponseAfter = await page.request.get(`${API_URL}/transactions?start_date=${year}-${month}-01&end_date=${year}-${month}-31&limit=100`, {
 			headers: { Authorization: `Bearer ${token}` },
 		})

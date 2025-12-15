@@ -67,7 +67,6 @@ test.describe('M8: Custom Date Range Selection', () => {
 		await page.keyboard.press('Escape')
 		// Tab to blur the input and commit the value
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(50)
 
 		// Apply button should still be disabled (only start date)
 		await expect(applyBtn).toBeDisabled()
@@ -80,11 +79,8 @@ test.describe('M8: Custom Date Range Selection', () => {
 		// Tab to blur the input and commit the value
 		await page.keyboard.press('Tab')
 
-		// Wait for state update
-		await page.waitForTimeout(100)
-
-		// Apply button should now be enabled
-		await expect(applyBtn).toBeEnabled()
+		// Apply button should now be enabled (wait for state update)
+		await expect(applyBtn).toBeEnabled({ timeout: 3000 })
 	})
 
 	test('M8-E2E-CUSTOM-004: Should filter dashboard data by custom date range', async ({ page }) => {
@@ -123,17 +119,17 @@ test.describe('M8: Custom Date Range Selection', () => {
 		await startDateInput.fill(formatDate(lastMonth))
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(50)
 
 		// Enter end date
 		const endDateInput = page.getByTestId('custom-end-date-input')
 		await endDateInput.fill(formatDate(today))
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(100)
 
-		// Apply custom range
-		await page.getByTestId('apply-custom-date').click()
+		// Apply custom range (wait for button to be enabled)
+		const applyBtn = page.getByTestId('apply-custom-date')
+		await expect(applyBtn).toBeEnabled({ timeout: 3000 })
+		await applyBtn.click()
 
 		// Wait for data to load
 		await page.waitForLoadState('networkidle')
@@ -168,17 +164,17 @@ test.describe('M8: Custom Date Range Selection', () => {
 		await startDateInput.fill('01/11/2024')
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(50)
 
 		// Enter end date
 		const endDateInput = page.getByTestId('custom-end-date-input')
 		await endDateInput.fill('30/11/2024')
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(100)
 
-		// Apply
-		await page.getByTestId('apply-custom-date').click()
+		// Apply (wait for button to be enabled)
+		const applyBtn = page.getByTestId('apply-custom-date')
+		await expect(applyBtn).toBeEnabled({ timeout: 3000 })
+		await applyBtn.click()
 
 		// Dropdown should close
 		await expect(page.getByTestId('custom-date-range')).not.toBeVisible()
@@ -202,16 +198,17 @@ test.describe('M8: Custom Date Range Selection', () => {
 		await startDateInput.fill('01/11/2024')
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(50)
 
 		// Enter end date
 		const endDateInput = page.getByTestId('custom-end-date-input')
 		await endDateInput.fill('30/11/2024')
 		await page.keyboard.press('Escape')
 		await page.keyboard.press('Tab')
-		await page.waitForTimeout(100)
 
-		await page.getByTestId('apply-custom-date').click()
+		// Apply (wait for button to be enabled)
+		const applyBtn = page.getByTestId('apply-custom-date')
+		await expect(applyBtn).toBeEnabled({ timeout: 3000 })
+		await applyBtn.click()
 		await page.waitForLoadState('networkidle')
 
 		// Verify custom range is displayed
@@ -282,16 +279,12 @@ test.describe('M9: Group Dashboard Custom Date Range', () => {
 		// Select custom option
 		await customOption.click()
 
-		// Wait a moment for state to update
-		await page.waitForTimeout(100)
-
 		// The dropdown should still be open with date pickers visible
 		// If not visible, click the selector again to reopen
 		const customDateRange = page.getByTestId('custom-date-range')
-		if (!(await customDateRange.isVisible())) {
+		if (!(await customDateRange.isVisible({ timeout: 2000 }).catch(() => false))) {
 			// Dropdown closed - reopen it (this can happen on some browsers)
 			await periodSelector.click()
-			await page.waitForTimeout(100)
 		}
 
 		// Now verify date pickers are visible

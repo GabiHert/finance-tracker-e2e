@@ -69,29 +69,23 @@ test.describe('M11: Polish & MVP Completion', () => {
 			// Click collapse button
 			await page.getByTestId('sidebar-collapse-btn').click()
 
-			// Wait for animation
-			await page.waitForTimeout(300)
+			// Wait for animation to complete by checking labels are hidden
+			await expect(page.getByTestId('nav-label-dashboard')).not.toBeVisible({ timeout: 3000 })
 
 			// Verify sidebar width is now 72px (collapsed)
 			sidebarBox = await sidebar.boundingBox()
 			expect(sidebarBox?.width).toBeGreaterThanOrEqual(60)
 			expect(sidebarBox?.width).toBeLessThanOrEqual(80)
 
-			// Verify labels are hidden in collapsed state
-			await expect(page.getByTestId('nav-label-dashboard')).not.toBeVisible()
-
 			// Click expand button
 			await page.getByTestId('sidebar-expand-btn').click()
 
-			// Wait for animation
-			await page.waitForTimeout(300)
+			// Wait for animation to complete by checking labels are visible
+			await expect(page.getByTestId('nav-label-dashboard')).toBeVisible({ timeout: 3000 })
 
 			// Verify sidebar is expanded again
 			sidebarBox = await sidebar.boundingBox()
 			expect(sidebarBox?.width).toBeGreaterThanOrEqual(250)
-
-			// Verify labels are visible again
-			await expect(page.getByTestId('nav-label-dashboard')).toBeVisible()
 		})
 
 		test('M11-E2E-003: Should display bottom navigation on mobile', async ({ page }) => {

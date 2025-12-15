@@ -225,6 +225,16 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // Amount Sign Consistency tests - verifies bank import preserves amount signs
+    {
+      name: 'amount-sign-consistency',
+      testDir: './tests/amount-sign-consistency',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

@@ -112,7 +112,7 @@ test.describe('M2: Remember Me Functionality', () => {
 				const hasError = await page
 					.getByText(/erro|error|aguarde|wait|limite|limit/i)
 					.isVisible()
-					.catch(() => false)
+					.then(() => true, () => false)
 
 				if (attempt === maxRetries) {
 					throw new Error(

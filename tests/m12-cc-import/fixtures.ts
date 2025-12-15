@@ -282,7 +282,7 @@ export async function completeImportFlow(
 
     // Confirm in dialog if present
     const confirmDialog = page.getByTestId('import-confirm-dialog')
-    if (await confirmDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await confirmDialog.isVisible({ timeout: 2000 }).then(() => true, () => false)) {
       await page.getByTestId('confirm-import-action-btn').click()
     }
   }

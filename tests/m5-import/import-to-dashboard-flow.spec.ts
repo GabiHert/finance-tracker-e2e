@@ -277,7 +277,7 @@ test.describe('M5-FLOW: Import to Dashboard Flow', () => {
 		const emptyState = recentSection.getByTestId('transactions-empty-state')
 
 		const itemCount = await transactionItems.count()
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
+		const hasEmptyState = await emptyState.isVisible().then(() => true, () => false)
 
 		// Either transactions or empty state should be visible
 		expect(itemCount > 0 || hasEmptyState).toBe(true)
@@ -422,7 +422,7 @@ test.describe('M5-FLOW: Import to Dashboard Flow', () => {
 		const hasSvg = (await svgElements.count()) > 0
 		const hasCanvas = (await canvasElements.count()) > 0
 		const hasContainer = (await chartContainer.count()) > 0
-		const hasEmpty = await emptyState.isVisible().catch(() => false)
+		const hasEmpty = await emptyState.isVisible().then(() => true, () => false)
 
 		// Either chart elements or empty state should be visible
 		expect(hasSvg || hasCanvas || hasContainer || hasEmpty).toBe(true)

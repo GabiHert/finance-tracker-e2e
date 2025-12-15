@@ -609,7 +609,7 @@ test.describe('M4: Bulk Categorize Transactions', () => {
 			// Note: If this still fails consistently, the application may not clear selection after apply
 			// In that case, this is expected behavior and the test should be adjusted
 			const bulkBar = page.getByTestId('bulk-actions-bar')
-			const isVisible = await bulkBar.isVisible().catch(() => false)
+			const isVisible = await bulkBar.isVisible().then(() => true, () => false)
 
 			// If bulk bar is still visible, verify at least that the modal closed successfully
 			// This indicates the apply action completed, even if selection wasn't auto-cleared

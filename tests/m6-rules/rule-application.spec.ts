@@ -102,7 +102,7 @@ test.describe('M6: Rule Application', () => {
 
 			// Step 6: Check for step 2
 			const step2 = page.getByTestId('import-step-2')
-			if (await step2.isVisible({ timeout: 5000 }).catch(() => false)) {
+			if (await step2.isVisible({ timeout: 5000 }).then(() => true, () => false)) {
 				// Step 7: Verify category is pre-selected based on rule
 				const categorySelector = page.getByTestId('category-selector').first()
 				if (await categorySelector.isVisible()) {

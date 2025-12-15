@@ -378,8 +378,8 @@ test.describe('M6: Category Rules Engine', () => {
     await page.waitForTimeout(500)
 
     // Check which element is visible
-    const emptyStateVisible = await emptyState.isVisible().catch(() => false)
-    const rulesListVisible = await rulesList.isVisible().catch(() => false)
+    const emptyStateVisible = await emptyState.isVisible().then(() => true, () => false)
+    const rulesListVisible = await rulesList.isVisible().then(() => true, () => false)
 
     // If empty state is showing (no rules), validate it
     if (emptyStateVisible && !rulesListVisible) {

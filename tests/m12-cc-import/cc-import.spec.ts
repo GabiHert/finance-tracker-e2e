@@ -660,7 +660,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     // Handle confirmation dialog
     const confirmDialog = page.getByTestId('import-confirm-dialog')
-    if (await confirmDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await confirmDialog.isVisible({ timeout: 2000 }).then(() => true, () => false)) {
       await page.getByTestId('confirm-import-action-btn').click()
     }
 
@@ -708,7 +708,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
 
     const confirmDialog = page.getByTestId('import-confirm-dialog')
-    if (await confirmDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (await confirmDialog.isVisible({ timeout: 2000 }).then(() => true, () => false)) {
       await page.getByTestId('confirm-import-action-btn').click()
     }
     await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 15000 })
@@ -724,7 +724,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     const ccCard = page.getByTestId('cc-status-card')
 
     // If CC card is visible, verify the calculations
-    if (await ccCard.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await ccCard.isVisible({ timeout: 5000 }).then(() => true, () => false)) {
       // Total spending should be ~366.91 (the net of 620.73 - 253.82)
       // NOT 874.55 (620.73 + 253.82) which would be wrong
       const totalSpending = page.getByTestId('cc-total-spending')

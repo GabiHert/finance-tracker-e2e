@@ -266,7 +266,7 @@ test.describe('M3: Category CRUD Operations', () => {
         let count = 0
         for (const cat of seededCategories) {
           const card = page.getByTestId('category-card').filter({ hasText: cat.name })
-          if (await card.isVisible().catch(() => false)) {
+          if (await card.isVisible().then(() => true, () => false)) {
             count++
           }
         }

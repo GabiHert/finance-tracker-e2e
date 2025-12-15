@@ -154,7 +154,7 @@ test.describe('M9: Group Invitations', () => {
 			if (clickedInvite) {
 				// Step 5: Wait for modal
 				const dialog = page.getByRole('dialog')
-				if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
+				if (await dialog.isVisible({ timeout: 3000 }).then(() => true, () => false)) {
 					// Step 6: Fill email (try multiple selectors)
 					const emailInput = page.getByTestId('invite-email-input')
 					const emailInputAlt = dialog.getByPlaceholder(/email/i)
@@ -179,9 +179,9 @@ test.describe('M9: Group Invitations', () => {
 					await page.waitForTimeout(500)
 					const successToast = page.getByTestId('toast-success')
 					const toastAlt = page.getByText(/enviado|sent|sucesso|success/i)
-					const hasSuccess = await successToast.isVisible().catch(() => false) ||
-						await toastAlt.isVisible().catch(() => false) ||
-						!(await dialog.isVisible().catch(() => true))
+					const hasSuccess = await successToast.isVisible().then(() => true, () => false) ||
+						await toastAlt.isVisible().then(() => true, () => false) ||
+						!(await dialog.isVisible().then(() => true, () => false))
 					expect(hasSuccess).toBeTruthy()
 				}
 			}

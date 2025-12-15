@@ -108,7 +108,8 @@ export async function loginViaUI(page: Page, maxRetries = 5): Promise<void> {
 
     // Wait for any error messages to clear (from previous failed attempts)
     const errorElement = page.getByText(/erro|error/i).first()
-    if (await errorElement.isVisible().catch(() => false)) {
+    const errorVisible = await errorElement.isVisible().then(() => true, () => false)
+    if (errorVisible) {
       await page.waitForTimeout(500)
     }
 
@@ -129,7 +130,7 @@ export async function loginViaUI(page: Page, maxRetries = 5): Promise<void> {
       return // Success!
     } catch (error) {
       // Check if there's an error message on the page (rate limit or auth error)
-      const hasError = await page.getByText(/erro|error|aguarde|wait|limite|limit/i).isVisible().catch(() => false)
+      const hasError = await page.getByText(/erro|error|aguarde|wait|limite|limit/i).isVisible().then(() => true, () => false)
 
       if (attempt === maxRetries) {
         throw new Error(
@@ -176,7 +177,8 @@ export async function loginViaUIWithRequestCapture(
 
     // Wait for any error messages to clear (from previous failed attempts)
     const errorElement = page.getByText(/erro|error/i).first()
-    if (await errorElement.isVisible().catch(() => false)) {
+    const errorVisible2 = await errorElement.isVisible().then(() => true, () => false)
+    if (errorVisible2) {
       await page.waitForTimeout(500)
     }
 
@@ -212,7 +214,7 @@ export async function loginViaUIWithRequestCapture(
       const hasError = await page
         .getByText(/erro|error|aguarde|wait|limite|limit/i)
         .isVisible()
-        .catch(() => false)
+        .then(() => true, () => false)
 
       if (attempt === maxRetries) {
         await page.unroute('**/auth/login')

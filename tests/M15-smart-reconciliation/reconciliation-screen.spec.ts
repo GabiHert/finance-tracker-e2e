@@ -127,7 +127,7 @@ test.describe.serial('M15: Reconciliation Screen', () => {
 
         // Wait for confirmation dialog
         const confirmBtn = page.getByTestId('confirm-unlink-btn')
-        if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        if (await confirmBtn.isVisible({ timeout: 3000 }).then(() => true, () => false)) {
           await confirmBtn.click()
         }
 

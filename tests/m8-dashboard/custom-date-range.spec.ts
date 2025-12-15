@@ -282,7 +282,7 @@ test.describe('M9: Group Dashboard Custom Date Range', () => {
 		// The dropdown should still be open with date pickers visible
 		// If not visible, click the selector again to reopen
 		const customDateRange = page.getByTestId('custom-date-range')
-		if (!(await customDateRange.isVisible({ timeout: 2000 }).catch(() => false))) {
+		if (!(await customDateRange.isVisible({ timeout: 2000 }).then(() => true, () => false))) {
 			// Dropdown closed - reopen it (this can happen on some browsers)
 			await periodSelector.click()
 		}

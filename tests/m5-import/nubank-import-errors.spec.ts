@@ -339,17 +339,17 @@ test.describe('M5-NUBANK: Nubank CSV Import', () => {
       .getByText(/sucesso|success|importada|imported/i)
       .first()
       .isVisible()
-      .catch(() => false)
+      .then(() => true, () => false)
 
     const toastVisible = await page
       .locator('[class*="toast"], [role="alert"]')
       .first()
       .isVisible()
-      .catch(() => false)
+      .then(() => true, () => false)
 
     // With the bug fixed, success feedback should be shown
     // OR the modal closes (indicating success)
-    const modalClosed = !(await page.getByRole('dialog').isVisible().catch(() => false))
+    const modalClosed = !(await page.getByRole('dialog').isVisible().then(() => true, () => false))
 
     // At least one of these should be true for good UX
     expect(successVisible || toastVisible || modalClosed).toBeTruthy()

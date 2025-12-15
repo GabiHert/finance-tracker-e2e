@@ -47,7 +47,7 @@ test.describe('M9: Group Creation and Navigation Flow', () => {
 
 		// Step 5: Enter description (optional)
 		const descriptionInput = modal.getByTestId('group-description-input')
-		if (await descriptionInput.isVisible().catch(() => false)) {
+		if (await descriptionInput.isVisible().then(() => true, () => false)) {
 			await descriptionInput.fill('Test group created by E2E test')
 		}
 

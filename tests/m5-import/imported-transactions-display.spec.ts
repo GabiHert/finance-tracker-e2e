@@ -42,7 +42,7 @@ ${today},${isolatedName('Imported Transaction 3', testId)},500.00`
       const importButton = page.getByTestId('import-transactions-btn')
 
       // If import button is not visible (due to Bug 1), skip this test with informative message
-      const isImportVisible = await importButton.isVisible().catch(() => false)
+      const isImportVisible = await importButton.isVisible().then(() => true, () => false)
       test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
       await importButton.click()
@@ -75,7 +75,8 @@ ${today},${isolatedName('Imported Transaction 3', testId)},500.00`
 
       // Close modal (click done or close button)
       const closeButton = page.getByTestId('import-done-btn').or(page.getByRole('button', { name: /fechar|close|ver/i }))
-      if (await closeButton.isVisible().catch(() => false)) {
+      const closeVisible = await closeButton.isVisible().then(() => true, () => false)
+      if (closeVisible) {
         await closeButton.click()
       } else {
         // Try clicking outside modal or pressing escape
@@ -138,7 +139,7 @@ ${today},${isolatedName('Imported After Manual', testId)},-100.00`
 
       // Open import modal
       const importButton = page.getByTestId('import-transactions-btn')
-      const isImportVisible = await importButton.isVisible().catch(() => false)
+      const isImportVisible = await importButton.isVisible().then(() => true, () => false)
       test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
       await importButton.click()
@@ -198,7 +199,7 @@ ${today},${isolatedName('Count Test 1', testId)},-50.00
 ${today},${isolatedName('Count Test 2', testId)},-60.00`
 
       const importButton = page.getByTestId('import-transactions-btn')
-      const isImportVisible = await importButton.isVisible().catch(() => false)
+      const isImportVisible = await importButton.isVisible().then(() => true, () => false)
       test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
       await importButton.click()
@@ -248,7 +249,7 @@ ${today},${isolatedName('Count Test 2', testId)},-60.00`
 ${today},${isolatedName('Persistence Test', testId)},-99.99`
 
       const importButton = page.getByTestId('import-transactions-btn')
-      const isImportVisible = await importButton.isVisible().catch(() => false)
+      const isImportVisible = await importButton.isVisible().then(() => true, () => false)
       test.skip(!isImportVisible, 'Import button not visible - Bug 1 may be blocking this test')
 
       await importButton.click()

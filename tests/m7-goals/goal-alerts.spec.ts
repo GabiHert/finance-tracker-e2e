@@ -266,15 +266,12 @@ test.describe('M7: Goal Alerts and Integration', () => {
         const duplicateError = page.getByTestId('duplicate-category-error')
         const errorAlert = page.locator('[role="alert"]')
         const errorText = page.getByText(/duplicado|duplicate|já existe|already exists|categoria já/i)
-        const modalStillOpen = await page.getByRole('dialog').isVisible()
-
-        const hasError = (await duplicateError.isVisible().catch(() => false)) ||
-          (await errorAlert.first().isVisible().catch(() => false)) ||
-          (await errorText.first().isVisible().catch(() => false)) ||
-          modalStillOpen
+        const dialog = page.getByRole('dialog')
+        const modalStillOpen = await dialog.isVisible()
 
         // Either error is shown or modal stays open (validation failed)
-        expect(hasError || modalStillOpen).toBeTruthy()
+        const errorIndicator = duplicateError.or(errorAlert.first()).or(errorText.first()).or(dialog)
+        await expect(errorIndicator).toBeVisible({ timeout: 3000 })
       }
     } finally {
       await cleanupIsolatedTestData(page, testId)
@@ -308,8 +305,9 @@ test.describe('M7: Goal Alerts and Integration', () => {
       if (await goalCard.isVisible()) {
         // Check for period indicator (e.g., current month/year)
         const periodIndicator = goalCard.getByTestId('goal-period')
+        const periodVisible = await periodIndicator.isVisible().then(() => true, () => false)
 
-        if (await periodIndicator.isVisible().catch(() => false)) {
+        if (periodVisible) {
           // Should contain current month/year or "monthly"
           const periodText = await periodIndicator.textContent()
           expect(periodText).toMatch(/nov|novembro|november|dec|dezembro|december|2025|mensal|monthly/i)

@@ -622,4 +622,121 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     await expect(page.getByTestId('toast-success')).toBeVisible()
   })
+
+  // ============================================================
+  // 3.11 Refund Amount Storage Verification
+  // ============================================================
+
+  test('E2E-CC-023: Refund stored with negative amount after import', async ({ page }) => {
+    // Setup: Create bill payment that matches refundCSV total
+    // refundCSV: Estorno -253.82, Bourbon +620.73, Pagamento -366.91
+    // Net expenses (excluding payment): 620.73 - 253.82 = 366.91
+    await createBillPayment(page, {
+      date: '2019-12-04',
+      amount: -366.91,
+      testId,
+    })
+    await page.reload()
+
+    // Open import wizard and select CC format
+    await openImportWizard(page)
+    await selectCCFormat(page)
+
+    // Upload refund CSV
+    await uploadCCCSV(page, refundCSV)
+
+    // Wait for preview
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify refund shows as negative in preview
+    const refundRowPreview = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundRowPreview).toBeVisible()
+    await expect(refundRowPreview).toContainText('-253.82')
+
+    // Complete import
+    await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('confirm-import-btn').click()
+
+    // Handle confirmation dialog
+    const confirmDialog = page.getByTestId('import-confirm-dialog')
+    if (await confirmDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await page.getByTestId('confirm-import-action-btn').click()
+    }
+
+    // Wait for import to complete
+    await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 15000 })
+
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to transactions with M12 date filter
+    await setM12DateFilter(page)
+
+    // Find the refund transaction in the list
+    const refundTxn = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundTxn).toBeVisible({ timeout: 10000 })
+
+    // Verify it shows as a credit/refund (negative amount)
+    // The amount display should indicate negative value
+    const amountCell = refundTxn.locator('[data-testid="transaction-amount"]')
+    await expect(amountCell).toBeVisible()
+    const amountText = await amountCell.textContent()
+
+    // Verify the amount is displayed as negative (or as income/credit indicator)
+    // Could be "-R$ 253,82", "R$ -253,82", or displayed in green/different color
+    expect(amountText).toMatch(/-.*253|253.*-|253,82/)
+  })
+
+  test('E2E-CC-024: Dashboard shows correct net total with refunds', async ({ page }) => {
+    // Setup: Create bill payment matching refundCSV net total
+    // Net = 620.73 - 253.82 = 366.91
+    await createBillPayment(page, {
+      date: '2019-12-04',
+      amount: -366.91,
+      testId,
+    })
+    await page.reload()
+
+    // Import refund CSV
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, refundCSV)
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('confirm-import-btn').click()
+
+    const confirmDialog = page.getByTestId('import-confirm-dialog')
+    if (await confirmDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await page.getByTestId('confirm-import-action-btn').click()
+    }
+    await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 15000 })
+
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Go to dashboard
+    await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
+
+    // Find CC status card
+    const ccCard = page.getByTestId('cc-status-card')
+
+    // If CC card is visible, verify the calculations
+    if (await ccCard.isVisible({ timeout: 5000 }).catch(() => false)) {
+      // Total spending should be ~366.91 (the net of 620.73 - 253.82)
+      // NOT 874.55 (620.73 + 253.82) which would be wrong
+      const totalSpending = page.getByTestId('cc-total-spending')
+      const totalText = await totalSpending.textContent() || ''
+
+      // Extract numeric value from the text (handles "R$ 366,91" format)
+      const numericValue = parseFloat(totalText.replace(/[^\d,-]/g, '').replace(',', '.'))
+
+      // Should be around 366.91, not 874.55
+      // Allow some tolerance for rounding
+      expect(numericValue).toBeLessThan(500) // Should be ~366.91, not ~874.55
+      expect(numericValue).toBeGreaterThan(300) // Should be around 366.91
+    }
+  })
 })

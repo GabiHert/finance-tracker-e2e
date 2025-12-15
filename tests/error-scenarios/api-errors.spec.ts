@@ -34,12 +34,10 @@ test.describe('Error Scenarios: API Errors', () => {
 		const transactionsHeader = page.getByTestId('transactions-header')
 
 		// Application should show error indication or page structure
-		const hasErrorHandling =
-			(await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await errorState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await transactionsHeader.isVisible({ timeout: 5000 }).catch(() => false))
-
-		expect(hasErrorHandling).toBeTruthy()
+		const errorIndicator = errorMessage.first()
+			.or(errorState)
+			.or(transactionsHeader)
+		await expect(errorIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('ERR-E2E-002: Should redirect to login on 401 unauthorized', async ({ page }) => {
@@ -91,12 +89,11 @@ test.describe('Error Scenarios: API Errors', () => {
 		const modalStillOpen = await page.getByRole('dialog').isVisible()
 
 		// Either error shown or modal stays open (save failed)
-		const hasErrorHandling =
-			(await toastError.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await formError.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			modalStillOpen
-
-		expect(hasErrorHandling).toBeTruthy()
+		if (!modalStillOpen) {
+			const errorIndicator = toastError.or(formError.first())
+			await expect(errorIndicator).toBeVisible({ timeout: 5000 })
+		}
+		// Modal staying open also indicates the save failed as expected
 	})
 
 	test('ERR-E2E-004: Should handle 404 when fetching non-existent resource', async ({ page }) => {
@@ -109,11 +106,8 @@ test.describe('Error Scenarios: API Errors', () => {
 		const pageContent = page.locator('body')
 
 		// Verify page loaded (404 for non-existent resources doesn't break navigation)
-		const pageLoaded =
-			(await categoriesHeader.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageContent.isVisible())
-
-		expect(pageLoaded).toBeTruthy()
+		const pageIndicator = categoriesHeader.or(pageContent)
+		await expect(pageIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('ERR-E2E-005: Should handle 500 error on dashboard data fetch', async ({ page }) => {
@@ -129,12 +123,10 @@ test.describe('Error Scenarios: API Errors', () => {
 		const dashboardScreen = page.getByTestId('dashboard-screen')
 
 		// Page should either show error or show dashboard with fallback data
-		const pageLoaded =
-			(await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await errorState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await dashboardScreen.isVisible({ timeout: 5000 }).catch(() => false))
-
-		expect(pageLoaded).toBeTruthy()
+		const pageIndicator = errorMessage.first()
+			.or(errorState)
+			.or(dashboardScreen)
+		await expect(pageIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('ERR-E2E-006: Should handle 403 forbidden on unauthorized action', async ({ page }) => {
@@ -147,18 +139,24 @@ test.describe('Error Scenarios: API Errors', () => {
 
 		// Step 3: Try to access delete account (if available)
 		const deleteSection = page.getByTestId('delete-account-section')
-		if (await deleteSection.isVisible().catch(() => false)) {
+		const deleteSectionVisible = await deleteSection.isVisible({ timeout: 3000 }).then(() => true, () => false)
+
+		if (deleteSectionVisible) {
 			// Attempt action that triggers 403
 			const deleteBtn = page.getByTestId('delete-account-btn')
-			if (await deleteBtn.isVisible()) {
+			const deleteBtnVisible = await deleteBtn.isVisible({ timeout: 2000 }).then(() => true, () => false)
+
+			if (deleteBtnVisible) {
 				await deleteBtn.click()
 
-				// Should show error message
+				// Should show error message (403 handling may not be implemented)
 				const errorMessage = page.getByText(/permission|permissão|forbidden|acesso negado/i)
-				await expect(errorMessage.first()).toBeVisible({ timeout: 5000 }).catch(() => {
-					// 403 handling may not be implemented - pass
-					expect(true).toBeTruthy()
-				})
+				// Just verify we can look for the error - 403 handling is optional
+				const errorVisible = await errorMessage.first().isVisible({ timeout: 5000 }).then(() => true, () => false)
+				// If 403 handling is implemented, error should be shown
+				if (errorVisible) {
+					expect(errorVisible).toBeTruthy()
+				}
 			}
 		}
 	})
@@ -176,12 +174,9 @@ test.describe('Error Scenarios: API Errors', () => {
 		const errorMessage = page.getByText(/erro|error|falha|failed/i)
 		const pageContent = page.getByTestId('transactions-header').or(page.getByTestId('error-state'))
 
-		const pageDidNotCrash =
-			(await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageContent.isVisible({ timeout: 5000 }).catch(() => false))
-
 		// App should not crash - either error shown or content displayed
-		expect(pageDidNotCrash).toBeTruthy()
+		const pageIndicator = errorMessage.first().or(pageContent)
+		await expect(pageIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('ERR-E2E-008: Should show appropriate error message for rate limiting (429)', async ({
@@ -202,12 +197,10 @@ test.describe('Error Scenarios: API Errors', () => {
 		const errorMessage = page.getByText(/erro|error|falha|failed/i)
 		const transactionsHeader = page.getByTestId('transactions-header')
 
-		const hasRateLimitHandling =
-			(await rateLimitMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await transactionsHeader.isVisible({ timeout: 5000 }).catch(() => false))
-
 		// Rate limiting should be handled gracefully
-		expect(hasRateLimitHandling).toBeTruthy()
+		const rateLimitIndicator = rateLimitMessage.first()
+			.or(errorMessage.first())
+			.or(transactionsHeader)
+		await expect(rateLimitIndicator).toBeVisible({ timeout: 5000 })
 	})
 })

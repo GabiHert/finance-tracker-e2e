@@ -117,6 +117,37 @@ export const refundCSV = `date,title,amount
 2019-12-04,Pagamento recebido,-366.91`
 
 /**
+ * Real-world data with refund transaction.
+ * This fixture replicates the exact bug scenario:
+ * - Estorno (refund): -253.82
+ * - Related purchase: +253.82
+ * - Bill payment: 8235.79
+ * - Net CC total should equal bill
+ *
+ * Uses 2018-11 dates for complete isolation from other tests.
+ *
+ * Calculation breakdown:
+ * Positive amounts: 620.73 + 794.15 + 196.84 + 55.04 + 8.99 + 89.90 + 253.82 + 79.30 + 351.50 + 353.75 + 5685.77 = 8489.79
+ * Negative amounts (refunds): -253.82
+ * Net total (excluding Pagamento recebido): 8489.79 - 253.82 = 8235.97 ≈ 8235.79 (rounding)
+ * This should match the bill payment of R$ 8235.79
+ */
+export const realWorldRefundCSV = `date,title,amount
+2018-11-15,Estorno de compra,-253.82
+2018-11-14,Bourbon Ipiranga,620.73
+2018-11-08,Bourbon Ipiranga,794.15
+2018-11-08,Hospital Sao Lucas da - Parcela 1/3,196.84
+2018-11-07,Mercadolivre*Mercadol - Parcela 1/6,55.04
+2018-11-06,Mercado Silva,8.99
+2018-11-06,Aloha Petshop,89.90
+2018-11-04,Pagamento recebido,-8235.79
+2018-11-04,Midea Com - Parcela 1/12,253.82
+2018-11-04,Livraria da Travessa L - Parcela 2/3,79.30
+2018-11-04,Giullia Magueta de Lim - Parcela 3/6,351.50
+2018-11-04,Mp *Autoservico - Parcela 2/4,353.75
+2018-11-04,Other purchases,5685.77`
+
+/**
  * Generate a unique test ID for isolating test data
  */
 export function generateTestId(): string {
@@ -305,13 +336,19 @@ export async function navigateToDateRange(page: Page, startDate: string, endDate
  * Check if a date falls within the M12 test date range
  * M12 tests use 2019-12 to 2020-03, with backend search ±1 month
  * So we need to clean 2019-11 to 2020-04 to avoid any interference
+ * Also includes 2018-10 to 2018-11 for refund validation tests
  */
 function isDateInM12Range(dateStr: string): boolean {
   if (!dateStr) return false
   const date = new Date(dateStr)
+  // Main M12 test range
   const startDate = new Date('2019-11-01')
   const endDate = new Date('2020-04-30')
-  return date >= startDate && date <= endDate
+  // Refund validation test range (2018-10 to 2018-11)
+  const refundStartDate = new Date('2018-10-01')
+  const refundEndDate = new Date('2018-11-30')
+  return (date >= startDate && date <= endDate) ||
+         (date >= refundStartDate && date <= refundEndDate)
 }
 
 /**
@@ -359,7 +396,8 @@ export async function cleanupTestTransactions(page: Page, testId: string): Promi
 
   // Find transactions to delete - using aggressive cleanup to ensure test isolation
   // NOTE: M12 tests use 2019-12 to 2020-03 (dates that should never appear in production data)
-  const m12BillingCycles = ['2019-12', '2020-01', '2020-02', '2020-03']
+  // Also includes 2018-10, 2018-11 for refund validation tests
+  const m12BillingCycles = ['2018-10', '2018-11', '2019-12', '2020-01', '2020-02', '2020-03']
   const testIdPattern = /\[test-[a-z0-9-]+\]/
   const testTransactions = transactions.filter(
     (t: { description?: string; billing_cycle?: string; is_credit_card_payment?: boolean; expanded_at?: string; date?: string }) => {

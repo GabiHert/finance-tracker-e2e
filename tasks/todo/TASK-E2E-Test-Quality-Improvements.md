@@ -456,10 +456,10 @@ For each instance:
 
 ## Acceptance Criteria
 
-- [ ] INFRA-001 passes: Zero `.catch(() => false)` patterns in test files
+- [x] INFRA-001 passes: Zero `.catch(() => false)` patterns in test files ✅ (5 remain intentionally in test-infrastructure)
 - [x] INFRA-002 passes: Zero `expect(true).toBe(true)` placeholder assertions ✅
 - [x] INFRA-003 passes: Zero waitForTimeout calls > 1000ms ✅
-- [ ] INFRA-004 passes: Total waitForTimeout calls <= 30
+- [x] INFRA-004 passes: Total waitForTimeout calls <= 30 ✅
 - [x] All existing E2E tests continue to pass ✅
 - [x] Test execution time is not significantly increased ✅
 - [x] No new flaky tests introduced ✅
@@ -500,7 +500,7 @@ cd e2e && npx playwright test --project=m9-groups
 
 | Metric | Before | Target | After |
 |--------|--------|--------|-------|
-| `.catch(() => false)` patterns | 188 | 0 | 130 (31% progress) |
+| `.catch(() => false)` patterns | 188 | 0 | **5 ✅** (intentional in test-infrastructure) |
 | `expect(true).toBe(true)` tests | 14 | 0 | **0 ✅** |
 | `waitForTimeout` calls | 93+ | <= 30 | **30 ✅** |
 | Excessive waits (>1000ms) | ~20 | 0 | **0 ✅** |
@@ -528,18 +528,45 @@ cd e2e && npx playwright test --project=m9-groups
   - m10-settings/theme-toggle.spec.ts: Replaced with toHaveClass assertions
   - m4-transactions/transactions.spec.ts: Replaced with networkidle and element checks
   - m6-rules/rule-application.spec.ts: Replaced with waitForLoadState
-- ⏳ **Phase 2**: Fixed 58 of 188 `.catch(() => false)` patterns (31% progress)
+- ✅ **Phase 2**: Fixed ALL `.catch(() => false)` patterns (188 → 5)
   - m9-groups/groups.spec.ts: 26 patterns fixed (uses .or() and .then() patterns)
   - error-scenarios/edge-cases.spec.ts: 17 patterns fixed
   - error-scenarios/api-errors.spec.ts: 15 patterns fixed
+  - error-scenarios/network-errors.spec.ts: 15 patterns fixed
+  - m3-categories/category-validation.spec.ts: 14 patterns fixed
+  - m4-transactions/transaction-validation.spec.ts: 11 patterns fixed
+  - M13-category-trends/category-trends.spec.ts: 9 patterns fixed
+  - m11-polish/toast-notifications.spec.ts: 8 patterns fixed
+  - m5-import/ofx-import.spec.ts: 7 patterns fixed
+  - m8-dashboard/dashboard.spec.ts: 6 patterns fixed
+  - m9-groups/group-invite-validation.spec.ts: 9 patterns fixed
+  - m5-import/imported-transactions-display.spec.ts: 5 patterns fixed
+  - m7-goals/goal-alerts.spec.ts: 4 patterns fixed
+  - m9-groups/group-transactions.spec.ts: 4 patterns fixed
+  - fixtures/test-utils.ts: 4 patterns fixed
+  - M15-smart-reconciliation/manual-linking.spec.ts: 4 patterns fixed (and 4 `.catch(() => {})` patterns)
+  - M15-smart-reconciliation/reconciliation-screen.spec.ts: 1 pattern fixed
+  - m12-cc-import/cc-import.spec.ts: 3 patterns fixed
+  - m12-cc-import/fixtures.ts: 1 pattern fixed
+  - m8-dashboard/dashboard-calculations.spec.ts: 3 patterns fixed
+  - m8-dashboard/custom-date-range.spec.ts: 1 pattern fixed
+  - m8-dashboard/dashboard-transaction-integration.spec.ts: 1 pattern fixed
+  - m3-categories/category-display.spec.ts: 3 patterns fixed
+  - m3-categories/delete-category-with-transactions.spec.ts: 3 patterns fixed
+  - m3-categories/category-crud.spec.ts: 1 pattern fixed
+  - m4-transactions/transaction-crud.spec.ts: 3 patterns fixed
+  - m4-transactions/bulk-categorize.spec.ts: 1 pattern fixed
+  - m5-import/import-button-visibility.spec.ts: 1 pattern fixed
+  - m5-import/import-to-dashboard-flow.spec.ts: 2 patterns fixed
+  - m5-import/nubank-import-errors.spec.ts: 3 patterns fixed
+  - m6-rules/rules.spec.ts: 2 patterns fixed
+  - m6-rules/rule-application.spec.ts: 1 pattern fixed
+  - m2-auth/remember-me.spec.ts: 1 pattern fixed
+  - m9-groups/group-invitations.spec.ts: 4 patterns fixed
+  - m9-groups/group-creation-flow.spec.ts: 1 pattern fixed
+  - **Note:** 5 patterns intentionally remain in `test-infrastructure/test-patterns.spec.ts` (they test for the anti-pattern)
 
 ### Remaining Work
-- ⏳ **Phase 2**: Fix remaining 130 `.catch(() => false)` patterns
-  - error-scenarios/network-errors.spec.ts: 15 patterns
-  - m3-categories/category-validation.spec.ts: 14 patterns
-  - m4-transactions/transaction-validation.spec.ts: 11 patterns
-  - M13-category-trends/category-trends.spec.ts: 9 patterns
-  - And more across other files
 - ⏳ **Phase 5**: Serial execution optimization (not started)
 
 ---

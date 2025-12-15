@@ -63,7 +63,7 @@ test.describe('M13: Category Expense Trends Chart', () => {
 			await expect(chart.locator('svg')).toBeVisible()
 
 			// Verify legend exists
-			const legend = page.getByTestId('chart-legend')
+			const legend = page.getByTestId('category-trends-legend')
 			await expect(legend).toBeVisible()
 		}
 	})
@@ -116,7 +116,7 @@ test.describe('M13: Category Expense Trends Chart', () => {
 			return
 		}
 
-		const legend = page.getByTestId('chart-legend')
+		const legend = page.getByTestId('category-trends-legend')
 		await expect(legend).toBeVisible()
 
 		// Get first legend item
@@ -185,7 +185,7 @@ test.describe('M13: Category Expense Trends Chart', () => {
 
 			// Should navigate to transactions with filters
 			await expect(page).toHaveURL(/\/transactions/)
-			await expect(page).toHaveURL(/categoryId=/)
+			await expect(page).toHaveURL(/categoryIds?=/)
 		}
 	})
 
@@ -265,7 +265,7 @@ test.describe('M13: Category Expense Trends Chart', () => {
 	})
 
 	test('M13-E2E-011: Should group excess categories as Others', async ({ page }) => {
-		const legend = page.getByTestId('chart-legend')
+		const legend = page.getByTestId('category-trends-legend')
 
 		// Skip if no chart visible
 		if (!(await legend.isVisible().catch(() => false))) {

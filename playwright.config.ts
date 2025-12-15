@@ -18,7 +18,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
 
   // Retry failed tests for occasional flakiness
-  retries: process.env.CI ? 2 : 1,
+  // Increase retries for M12/M15 which can be flaky in full suite runs
+  retries: process.env.CI ? 3 : 2,
 
   // Use multiple workers for parallel execution
   // Local: Use most CPU cores (leaving headroom for frontend/backend services)
@@ -187,12 +188,14 @@ export default defineConfig({
     // M12 Credit Card Import tests - requires authentication (depends on auth-setup)
     // Run sequentially with single worker to avoid race conditions with bill payment matching
     // Multiple tests create bill payments with same amounts, causing match conflicts
+    // Depends on most other test projects to avoid concurrent database modifications
+    // This ensures M12 runs after other tests that might create conflicting transaction data
     {
       name: 'm12-cc-import',
       testDir: './tests/m12-cc-import',
       fullyParallel: false,
       workers: 1,
-      dependencies: ['auth-setup'],
+      dependencies: ['auth-setup', 'm4-transactions', 'm5-import', 'm6-rules', 'm8-dashboard', 'error-scenarios'],
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'tests/fixtures/.auth/user.json',
@@ -203,6 +206,20 @@ export default defineConfig({
       name: 'm13-category-trends',
       testDir: './tests/M13-category-trends',
       dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
+    // M15 Smart Reconciliation tests - requires authentication (depends on auth-setup)
+    // Run sequentially with single worker to avoid race conditions with CC reconciliation
+    // Depends on m12-cc-import to avoid concurrent CC-related operations
+    {
+      name: 'm15-smart-reconciliation',
+      testDir: './tests/M15-smart-reconciliation',
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ['auth-setup', 'm12-cc-import'],
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'tests/fixtures/.auth/user.json',

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { getAuthToken, API_URL } from '../fixtures/test-utils'
+import { getAuthToken, API_URL, createGroup, deleteAllGroups } from '../fixtures/test-utils'
 
 /**
  * M9-E2E: Group Invite Validation
@@ -8,43 +8,49 @@ import { getAuthToken, API_URL } from '../fixtures/test-utils'
  * Authentication: These tests use saved auth state from auth.setup.ts
  */
 test.describe('M9: Group Invite User Validation', () => {
+	const testGroupName = `E2E Invite Test ${Date.now()}`
+
 	test.beforeEach(async ({ page }) => {
-		// Navigate to groups page first to establish context
+		// Clean up any existing groups and create a fresh test group
+		await page.goto('/dashboard')
+		await page.waitForLoadState('domcontentloaded')
+		await deleteAllGroups(page)
+		await createGroup(page, { name: testGroupName, description: 'Test group for invite validation E2E' })
+
+		// Navigate to groups page
 		await page.goto('/groups')
 		await expect(page.getByTestId('groups-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
+	})
+
+	test.afterEach(async ({ page }) => {
+		// Clean up test group
+		try {
+			await deleteAllGroups(page)
+		} catch {
+			// Ignore cleanup errors
+		}
 	})
 
 	test('M9-E2E-11a: Should show confirmation dialog when inviting non-registered user', async ({ page }) => {
-		// Step 1: Find or create a group where user is admin
+		// Step 1: Find the test group (created in beforeEach)
 		const groupCard = page.getByTestId('group-card').first()
-
-		if (!(await groupCard.isVisible())) {
-			test.skip()
-			return
-		}
+		await expect(groupCard).toBeVisible({ timeout: 5000 })
 
 		await groupCard.click()
 		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Step 2: Go to members tab
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
-		if (await membersTab.isVisible()) {
-			await membersTab.click()
-			await page.waitForTimeout(300)
-		}
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
+		await membersTab.click()
+		await page.waitForTimeout(500) // Wait for tab content to render
 
-		// Step 3: Click invite button
+		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
-		const inviteBtnAlt = page.getByRole('button', { name: /convidar|invite/i })
-
-		if (await inviteBtn.isVisible()) {
-			await inviteBtn.click()
-		} else if (await inviteBtnAlt.isVisible()) {
-			await inviteBtnAlt.click()
-		} else {
-			test.skip()
-			return
-		}
+		await expect(inviteBtn).toBeVisible({ timeout: 5000 })
+		await inviteBtn.click()
 
 		// Step 4: Wait for invite modal
 		const dialog = page.getByRole('dialog')
@@ -87,36 +93,24 @@ test.describe('M9: Group Invite User Validation', () => {
 	test('M9-E2E-11b: Should proceed directly when inviting existing registered user', async ({ page }) => {
 		// This test verifies that inviting an existing user doesn't show confirmation
 
-		// Step 1: Find a group where user is admin
+		// Step 1: Find the test group (created in beforeEach)
 		const groupCard = page.getByTestId('group-card').first()
-
-		if (!(await groupCard.isVisible())) {
-			test.skip()
-			return
-		}
+		await expect(groupCard).toBeVisible({ timeout: 5000 })
 
 		await groupCard.click()
 		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Step 2: Go to members tab
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
-		if (await membersTab.isVisible()) {
-			await membersTab.click()
-			await page.waitForTimeout(300)
-		}
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
+		await membersTab.click()
+		await page.waitForTimeout(500)
 
-		// Step 3: Click invite button
+		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
-		const inviteBtnAlt = page.getByRole('button', { name: /convidar|invite/i })
-
-		if (await inviteBtn.isVisible()) {
-			await inviteBtn.click()
-		} else if (await inviteBtnAlt.isVisible()) {
-			await inviteBtnAlt.click()
-		} else {
-			test.skip()
-			return
-		}
+		await expect(inviteBtn).toBeVisible({ timeout: 5000 })
+		await inviteBtn.click()
 
 		// Step 4: Wait for invite modal
 		const dialog = page.getByRole('dialog')
@@ -186,36 +180,24 @@ test.describe('M9: Group Invite User Validation', () => {
 	})
 
 	test('M9-E2E-11c: Should send invite after confirming non-user invitation', async ({ page }) => {
-		// Step 1: Find a group where user is admin
+		// Step 1: Find the test group (created in beforeEach)
 		const groupCard = page.getByTestId('group-card').first()
-
-		if (!(await groupCard.isVisible())) {
-			test.skip()
-			return
-		}
+		await expect(groupCard).toBeVisible({ timeout: 5000 })
 
 		await groupCard.click()
 		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Step 2: Go to members tab
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
-		if (await membersTab.isVisible()) {
-			await membersTab.click()
-			await page.waitForTimeout(300)
-		}
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
+		await membersTab.click()
+		await page.waitForTimeout(500)
 
-		// Step 3: Click invite button
+		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
-		const inviteBtnAlt = page.getByRole('button', { name: /convidar|invite/i })
-
-		if (await inviteBtn.isVisible()) {
-			await inviteBtn.click()
-		} else if (await inviteBtnAlt.isVisible()) {
-			await inviteBtnAlt.click()
-		} else {
-			test.skip()
-			return
-		}
+		await expect(inviteBtn).toBeVisible({ timeout: 5000 })
+		await inviteBtn.click()
 
 		// Step 4: Wait for invite modal
 		const dialog = page.getByRole('dialog')
@@ -270,36 +252,24 @@ test.describe('M9: Group Invite User Validation', () => {
 	})
 
 	test('M9-E2E-11d: Should cancel non-user confirmation and return to modal', async ({ page }) => {
-		// Step 1: Find a group where user is admin
+		// Step 1: Find the test group (created in beforeEach)
 		const groupCard = page.getByTestId('group-card').first()
-
-		if (!(await groupCard.isVisible())) {
-			test.skip()
-			return
-		}
+		await expect(groupCard).toBeVisible({ timeout: 5000 })
 
 		await groupCard.click()
 		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Step 2: Go to members tab
 		const membersTab = page.getByTestId('group-tabs').getByText(/membros|members/i)
-		if (await membersTab.isVisible()) {
-			await membersTab.click()
-			await page.waitForTimeout(300)
-		}
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
+		await membersTab.click()
+		await page.waitForTimeout(500)
 
-		// Step 3: Click invite button
+		// Step 3: Wait for and click invite button (only visible for admins)
 		const inviteBtn = page.getByTestId('invite-member-btn')
-		const inviteBtnAlt = page.getByRole('button', { name: /convidar|invite/i })
-
-		if (await inviteBtn.isVisible()) {
-			await inviteBtn.click()
-		} else if (await inviteBtnAlt.isVisible()) {
-			await inviteBtnAlt.click()
-		} else {
-			test.skip()
-			return
-		}
+		await expect(inviteBtn).toBeVisible({ timeout: 5000 })
+		await inviteBtn.click()
 
 		// Step 4: Wait for invite modal
 		const dialog = page.getByRole('dialog')
@@ -359,37 +329,20 @@ test.describe('M9: Group Invite User Validation', () => {
 		// This test verifies the new check endpoint directly via API
 
 		const token = await getAuthToken(page)
-		const groupId = await page.evaluate(async () => {
-			// Get first group ID from page context
-			const groupCard = document.querySelector('[data-testid="group-card"]')
-			if (groupCard) {
-				const href = groupCard.getAttribute('href') || ''
-				const match = href.match(/groups\/([a-f0-9-]+)/)
-				return match ? match[1] : null
-			}
-			return null
-		})
 
-		if (!groupId) {
-			// Navigate to a group to get its ID
-			const groupCard = page.getByTestId('group-card').first()
-			if (!(await groupCard.isVisible())) {
-				test.skip()
-				return
-			}
-			await groupCard.click()
-			await expect(page.getByTestId('group-detail-screen')).toBeVisible()
-		}
+		// Navigate to the test group to get its ID
+		const groupCard = page.getByTestId('group-card').first()
+		await expect(groupCard).toBeVisible({ timeout: 5000 })
+		await groupCard.click()
+		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		await page.waitForLoadState('networkidle')
 
 		// Get group ID from URL
 		const url = page.url()
 		const groupIdMatch = url.match(/groups\/([a-f0-9-]+)/)
-		const actualGroupId = groupIdMatch ? groupIdMatch[1] : groupId
+		const actualGroupId = groupIdMatch ? groupIdMatch[1] : null
 
-		if (!actualGroupId) {
-			test.skip()
-			return
-		}
+		expect(actualGroupId).toBeTruthy()
 
 		// Test 1: Check with non-existing user email
 		const nonExistentEmail = `api-check-${Date.now()}@test.example.com`

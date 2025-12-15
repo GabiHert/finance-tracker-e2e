@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { createGroup, deleteAllGroups } from '../fixtures/test-utils'
 
 /**
  * M8-E2E: Custom Date Range Selection for Dashboards
@@ -230,6 +231,25 @@ test.describe('M8: Custom Date Range Selection', () => {
 })
 
 test.describe('M9: Group Dashboard Custom Date Range', () => {
+	const testGroupName = `E2E Test Group ${Date.now()}`
+
+	test.beforeEach(async ({ page }) => {
+		// Clean up any existing groups and create a fresh test group
+		await page.goto('/dashboard')
+		await page.waitForLoadState('domcontentloaded')
+		await deleteAllGroups(page)
+		await createGroup(page, { name: testGroupName, description: 'Test group for custom date range E2E' })
+	})
+
+	test.afterEach(async ({ page }) => {
+		// Clean up test group
+		try {
+			await deleteAllGroups(page)
+		} catch {
+			// Ignore cleanup errors
+		}
+	})
+
 	test('M9-E2E-CUSTOM-001: Should support custom date range on group dashboard', async ({ page }) => {
 		// Navigate to groups
 		await page.goto('/groups')
@@ -238,40 +258,46 @@ test.describe('M9: Group Dashboard Custom Date Range', () => {
 		// Wait for groups to load
 		await page.waitForLoadState('networkidle')
 
-		// Check if there are any groups
-		const groupCards = page.getByTestId('group-card')
-		const groupCount = await groupCards.count()
+		// Click on the test group
+		const groupCard = page.getByTestId('group-card').filter({ hasText: testGroupName })
+		await expect(groupCard).toBeVisible()
+		await groupCard.click()
+		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
 
-		if (groupCount > 0) {
-			// Click on first group
-			await groupCards.first().click()
-			await expect(page.getByTestId('group-detail-screen')).toBeVisible()
+		// Navigate to dashboard tab (it's a button in the group detail view)
+		const dashboardBtn = page.getByRole('button', { name: /dashboard/i }).first()
+		await expect(dashboardBtn).toBeVisible()
+		await dashboardBtn.click()
+		await page.waitForLoadState('networkidle')
 
-			// Navigate to dashboard tab
-			const dashboardTab = page.getByRole('tab', { name: /dashboard/i }).or(
-				page.getByTestId('tab-dashboard')
-			)
-			if (await dashboardTab.isVisible()) {
-				await dashboardTab.click()
-				await page.waitForLoadState('networkidle')
+		// Open period selector
+		const periodSelector = page.getByTestId('period-selector')
+		await expect(periodSelector).toBeVisible()
+		await periodSelector.click()
 
-				// Open period selector
-				const periodSelector = page.getByTestId('period-selector')
-				if (await periodSelector.isVisible()) {
-					await periodSelector.click()
+		// Wait for dropdown to appear
+		const customOption = page.getByTestId('period-option-custom')
+		await expect(customOption).toBeVisible()
 
-					// Verify custom option exists
-					const customOption = page.getByTestId('period-option-custom')
-					await expect(customOption).toBeVisible()
+		// Select custom option
+		await customOption.click()
 
-					// Select custom and verify date pickers appear
-					await customOption.click()
-					await expect(page.getByTestId('custom-date-range')).toBeVisible()
-				}
-			}
-		} else {
-			// No groups exist, skip test
-			test.skip()
+		// Wait a moment for state to update
+		await page.waitForTimeout(100)
+
+		// The dropdown should still be open with date pickers visible
+		// If not visible, click the selector again to reopen
+		const customDateRange = page.getByTestId('custom-date-range')
+		if (!(await customDateRange.isVisible())) {
+			// Dropdown closed - reopen it (this can happen on some browsers)
+			await periodSelector.click()
+			await page.waitForTimeout(100)
 		}
+
+		// Now verify date pickers are visible
+		await expect(customDateRange).toBeVisible()
+		await expect(page.getByTestId('custom-start-date')).toBeVisible()
+		await expect(page.getByTestId('custom-end-date')).toBeVisible()
+		await expect(page.getByTestId('apply-custom-date')).toBeVisible()
 	})
 })

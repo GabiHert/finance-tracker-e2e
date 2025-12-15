@@ -1044,3 +1044,32 @@ export async function deleteAllGroups(page: Page): Promise<void> {
     await deleteGroup(page, group.id)
   }
 }
+
+/**
+ * Helper to create a group via API
+ * Used by tests that need a group to exist before running
+ */
+export async function createGroup(
+  page: Page,
+  group: { name: string; description?: string }
+): Promise<TestGroup> {
+  const token = await getAuthToken(page)
+
+  const response = await page.request.post(`${API_URL}/groups`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    data: {
+      name: group.name,
+      description: group.description || '',
+    },
+  })
+
+  if (!response.ok()) {
+    throw new Error(`Failed to create group: ${response.status()}`)
+  }
+
+  const data = await response.json()
+  return data.group || data
+}

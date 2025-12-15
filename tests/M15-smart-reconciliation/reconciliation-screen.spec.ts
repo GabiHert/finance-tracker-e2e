@@ -78,7 +78,7 @@ test.describe.serial('M15: Reconciliation Screen', () => {
 
     // Wait for screen to load
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Click reconcile button if visible
     const reconcileBtn = page.getByTestId('reconcile-btn')
@@ -86,7 +86,7 @@ test.describe.serial('M15: Reconciliation Screen', () => {
       await reconcileBtn.click()
 
       // Wait for reconciliation to complete
-      await page.waitForTimeout(3000)
+      await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
     }
 
     // Verify by navigating to transactions and checking our data exists
@@ -113,7 +113,7 @@ test.describe.serial('M15: Reconciliation Screen', () => {
 
     // Wait for screen to load
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Check if cycle card exists in linked section
     const linkedSection = page.locator('[data-testid="linked-cycles"]')
@@ -127,12 +127,12 @@ test.describe.serial('M15: Reconciliation Screen', () => {
 
         // Wait for confirmation dialog
         const confirmBtn = page.getByTestId('confirm-unlink-btn')
-        if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
           await confirmBtn.click()
         }
 
         // Wait for unlink to complete
-        await page.waitForTimeout(2000)
+        await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     }
 

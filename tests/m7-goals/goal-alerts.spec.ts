@@ -250,8 +250,8 @@ test.describe('M7: Goal Alerts and Integration', () => {
       const isAvailable = await isolatedCategoryOption.count() > 0
 
       if (!isAvailable) {
-        // Category is not available - duplicates are prevented
-        expect(true).toBe(true)
+        // Category is not available in dropdown - this confirms duplicates are prevented
+        // This is the expected behavior: the category with an existing goal is filtered out
         await page.keyboard.press('Escape')
       } else {
         // Category is available, try to select it

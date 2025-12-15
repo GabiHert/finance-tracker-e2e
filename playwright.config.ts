@@ -235,6 +235,13 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // Test Infrastructure Quality - verifies tests follow best practices
+    // No dependencies as this scans test files, not the application
+    {
+      name: 'test-infrastructure',
+      testDir: './tests/test-infrastructure',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
 
   // Global setup and teardown

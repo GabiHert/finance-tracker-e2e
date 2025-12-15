@@ -167,7 +167,7 @@ test.describe('M5-NUBANK: Nubank CSV Import', () => {
       await page.getByTestId('import-confirm-btn').click()
 
       // Wait for the request to be captured
-      await page.waitForTimeout(2000)
+      await page.waitForLoadState('networkidle')
 
       // This assertion documents the CORRECT behavior:
       // Date should be converted from DD/MM/YYYY (Nubank format) to YYYY-MM-DD (API format)
@@ -332,7 +332,7 @@ test.describe('M5-NUBANK: Nubank CSV Import', () => {
     await page.getByTestId('import-confirm-btn').click()
 
     // Wait for success feedback (modal closes or success message appears)
-    await page.waitForTimeout(3000)
+    await page.waitForLoadState('networkidle')
 
     // Check for success indication - now the import works!
     const successVisible = await page

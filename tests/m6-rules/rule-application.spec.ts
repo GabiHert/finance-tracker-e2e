@@ -89,9 +89,9 @@ test.describe('M6: Rule Application', () => {
 			errorMessage.waitFor({ state: 'visible', timeout: 10000 }),
 		]).catch(() => {})
 
-		// If import parsing fails, pass gracefully
+		// TODO: Skip rule auto-categorization test when import parsing fails
 		if (await errorMessage.isVisible()) {
-			expect(true).toBe(true)
+			test.skip(true, 'Import parsing failed - skipping auto-categorization verification')
 			return
 		}
 

@@ -44,13 +44,12 @@ test.describe('M11: Toast Notifications', () => {
 		const successToast = page.getByTestId('toast-success').or(page.locator('[role="alert"]').filter({ hasText: /sucesso|success|criado|created|salvo|saved/i }))
 		const toastVisible = await successToast.first().isVisible().catch(() => false)
 
+		// Transaction was created (modal closed), now verify toast if visible
 		if (toastVisible) {
 			const toastText = await successToast.first().textContent()
 			expect(toastText?.toLowerCase()).toMatch(/sucesso|success|criado|criada|created|salvo|saved|transacao/)
-		} else {
-			// Toast may not be implemented - test passes if transaction was created
-			expect(true).toBe(true)
 		}
+		// Test passes: transaction was successfully created (modal closed is the primary assertion)
 	})
 
 	test('M11-E2E-10b: Should auto-dismiss toast after delay', async ({ page }) => {
@@ -80,16 +79,15 @@ test.describe('M11: Toast Notifications', () => {
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
 		const toastVisible = await toast.first().isVisible().catch(() => false)
 
-		if (toastVisible) {
-			// Step 4: Wait for auto-dismiss (typically 5-6 seconds)
-			await page.waitForTimeout(7000)
-
-			// Step 5: Verify toast is no longer visible
-			await expect(toast.first()).not.toBeVisible({ timeout: 2000 })
-		} else {
-			// Toast not implemented - test passes
-			expect(true).toBe(true)
+		// TODO: Skip toast auto-dismiss test when toasts aren't implemented
+		if (!toastVisible) {
+			test.skip(true, 'Toast notifications not implemented - skipping auto-dismiss test')
+			return
 		}
+
+		// Step 4: Wait for auto-dismiss (typically 5-6 seconds) using proper assertion
+		// Step 5: Verify toast is no longer visible after auto-dismiss
+		await expect(toast.first()).not.toBeVisible({ timeout: 10000 })
 	})
 
 	test('M11-E2E-10c: Should dismiss toast manually', async ({ page }) => {
@@ -119,18 +117,19 @@ test.describe('M11: Toast Notifications', () => {
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
 		const toastVisible = await toast.first().isVisible().catch(() => false)
 
-		if (toastVisible) {
-			// Step 4: Click dismiss button
-			const dismissBtn = toast.first().getByTestId('toast-dismiss-btn').or(toast.first().locator('button'))
-			if (await dismissBtn.isVisible()) {
-				await dismissBtn.click()
+		// TODO: Skip toast manual dismiss test when toasts aren't implemented
+		if (!toastVisible) {
+			test.skip(true, 'Toast notifications not implemented - skipping manual dismiss test')
+			return
+		}
 
-				// Step 5: Verify toast disappears immediately
-				await expect(toast.first()).not.toBeVisible({ timeout: 1000 })
-			}
-		} else {
-			// Toast not implemented - test passes
-			expect(true).toBe(true)
+		// Step 4: Click dismiss button
+		const dismissBtn = toast.first().getByTestId('toast-dismiss-btn').or(toast.first().locator('button'))
+		if (await dismissBtn.isVisible()) {
+			await dismissBtn.click()
+
+			// Step 5: Verify toast disappears immediately
+			await expect(toast.first()).not.toBeVisible({ timeout: 1000 })
 		}
 	})
 
@@ -188,23 +187,24 @@ test.describe('M11: Toast Notifications', () => {
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
 		const toastVisible = await toast.first().isVisible().catch(() => false)
 
-		if (toastVisible) {
-			// Step 4: Check toast position (should be top-right or bottom-right)
-			const toastBounds = await toast.first().boundingBox()
-			const viewportSize = page.viewportSize()
+		// TODO: Skip toast position test when toasts aren't implemented
+		if (!toastVisible) {
+			test.skip(true, 'Toast notifications not implemented - skipping position test')
+			return
+		}
 
-			if (toastBounds && viewportSize) {
-				// Toast should be positioned on the right side
-				expect(toastBounds.x).toBeGreaterThan(viewportSize.width / 2)
+		// Step 4: Check toast position (should be top-right or bottom-right)
+		const toastBounds = await toast.first().boundingBox()
+		const viewportSize = page.viewportSize()
 
-				// Toast should be near top or bottom (within 200px of edge)
-				const isNearTop = toastBounds.y < 200
-				const isNearBottom = toastBounds.y + toastBounds.height > viewportSize.height - 200
-				expect(isNearTop || isNearBottom).toBeTruthy()
-			}
-		} else {
-			// Toast not implemented - test passes
-			expect(true).toBe(true)
+		if (toastBounds && viewportSize) {
+			// Toast should be positioned on the right side
+			expect(toastBounds.x).toBeGreaterThan(viewportSize.width / 2)
+
+			// Toast should be near top or bottom (within 200px of edge)
+			const isNearTop = toastBounds.y < 200
+			const isNearBottom = toastBounds.y + toastBounds.height > viewportSize.height - 200
+			expect(isNearTop || isNearBottom).toBeTruthy()
 		}
 	})
 
@@ -235,6 +235,7 @@ test.describe('M11: Toast Notifications', () => {
 		const toast = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
 		const toastVisible = await toast.first().isVisible().catch(() => false)
 
+		// Transaction was created (modal closed is the primary success indicator)
 		if (toastVisible) {
 			// Step 4: Check for success icon
 			const toastIcon = toast.first().getByTestId('toast-icon').or(toast.first().locator('svg'))
@@ -243,9 +244,7 @@ test.describe('M11: Toast Notifications', () => {
 				await expect(toastIcon.first()).toBeVisible()
 			}
 		}
-
-		// Test passes if transaction was created (modal closed)
-		expect(true).toBe(true)
+		// Test passes: modal closed confirms transaction was created successfully
 	})
 
 	test('M11-E2E-10g: Should stack multiple toasts correctly', async ({ page }) => {
@@ -280,6 +279,7 @@ test.describe('M11: Toast Notifications', () => {
 		const toasts = page.getByTestId('toast-success').or(page.locator('[role="alert"]'))
 		const toastCount = await toasts.count()
 
+		// Transactions were created (both modals closed), now verify toast stacking if visible
 		if (toastCount >= 1) {
 			// Toasts are working - verify they exist
 			expect(toastCount).toBeGreaterThanOrEqual(1)
@@ -290,13 +290,12 @@ test.describe('M11: Toast Notifications', () => {
 				const secondBounds = await toasts.nth(1).boundingBox()
 
 				if (firstBounds && secondBounds) {
-					// Toasts should be stacked (either they don't fully overlap or are sequential)
-					expect(true).toBeTruthy()
+					// Toasts should be stacked (not overlapping completely)
+					const notFullyOverlapping = firstBounds.y !== secondBounds.y || firstBounds.x !== secondBounds.x
+					expect(notFullyOverlapping).toBeTruthy()
 				}
 			}
-		} else {
-			// Toasts not implemented - test passes if transactions were created
-			expect(true).toBe(true)
 		}
+		// Test passes: transactions were created (modals closed) - toast stacking is a secondary check
 	})
 })

@@ -152,9 +152,8 @@ test.describe('M10: Theme Toggle', () => {
 				expect(r + g + b).toBeLessThan(450)
 			}
 		} else {
-			// Dark mode toggle may not be implemented - test passes if feature is not available
-			// This is defensive to allow tests to pass when feature is partially implemented
-			expect(true).toBe(true)
+			// TODO: Skip color verification when dark mode isn't enabled
+			test.skip(true, 'Dark mode toggle not implemented - skipping color verification')
 		}
 	})
 

@@ -59,7 +59,7 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
 
     // Wait for screen to load
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Check if cycle card exists (may already be linked or pending)
     const cycleCard = page.locator('[data-testid="cycle-card-2025-12"]')
@@ -76,14 +76,14 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
 
         // Wait to see if dialog appears
         const dialog = page.locator('[data-testid="bill-selection-dialog"]')
-        if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+        if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
           // Select the first bill option and confirm
           await dialog.locator('[data-testid="bill-option"]').first().click()
           await page.getByTestId('confirm-link-btn').click()
         }
 
-        // Wait for any toast or UI update
-        await page.waitForTimeout(2000)
+        // Wait for UI to update (toast may appear)
+        await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     }
 
@@ -129,7 +129,7 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
 
     // Wait for screen to load
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Try to click reconcile button if visible
     const reconcileBtn = page.getByTestId('reconcile-btn')
@@ -137,7 +137,7 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
       await reconcileBtn.click()
 
       // Wait for potential dialog or toast
-      await page.waitForTimeout(2000)
+      await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
       // Check if dialog appeared
       const dialog = page.locator('[data-testid="bill-selection-dialog"]')
@@ -223,7 +223,7 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
 
     // Wait for screen to load
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Check if cycle card exists in pending section
     const pendingSection = page.getByTestId('pending-cycles')
@@ -236,8 +236,6 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
         await linkBtn.click()
 
         // Wait for dialog or auto-link
-        await page.waitForTimeout(2000)
-
         const dialog = page.locator('[data-testid="bill-selection-dialog"]')
         if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
           const billOption = dialog.locator('[data-testid="bill-option"]').first()
@@ -246,18 +244,15 @@ test.describe.serial('M15: Manual Linking & Disambiguation', () => {
             await page.getByTestId('confirm-link-btn').click()
 
             // Wait for potential mismatch confirmation
-            await page.waitForTimeout(2000)
-
-            // Try force link if mismatch confirmation appears
             const forceLinkBtn = page.getByTestId('force-link-btn')
-            if (await forceLinkBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+            if (await forceLinkBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
               await forceLinkBtn.click()
             }
           }
         }
 
         // Wait for link to complete
-        await page.waitForTimeout(2000)
+        await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     }
 

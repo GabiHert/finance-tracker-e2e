@@ -112,7 +112,7 @@ test.describe.serial('M15: Auto-Reconciliation Flow', () => {
     await expect(page.getByTestId('reconciliation-screen')).toBeVisible({ timeout: 15000 })
 
     // Wait for any loading spinners to disappear
-    await page.waitForTimeout(2000)
+    await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
 
     // Check current state of pending cycles
     const pendingSection = page.getByTestId('pending-cycles')
@@ -125,8 +125,7 @@ test.describe.serial('M15: Auto-Reconciliation Flow', () => {
         await reconcileBtn.click()
 
         // Wait for reconciliation to complete - either toast or loading state change
-        // The API call might not show a toast if nothing happened
-        await page.waitForTimeout(3000)
+        await expect(page.getByTestId('loading-spinner')).not.toBeVisible({ timeout: 5000 }).catch(() => {})
       }
     }
 

@@ -23,7 +23,7 @@ test.describe('Error Scenarios: Network Errors', () => {
 		await page.goto('/transactions')
 
 		// Step 3: Wait for error handling to be triggered
-		await page.waitForTimeout(2000)
+		await page.waitForLoadState('networkidle')
 
 		// Step 4: Check for any error indication - could be displayed in many ways
 		const networkError = page.getByText(/rede|network|conexão|connection|offline|falha/i)
@@ -54,7 +54,7 @@ test.describe('Error Scenarios: Network Errors', () => {
 		const errorMessage = page.getByText(/erro|error|failed/i)
 
 		// Wait a bit for any error handling to kick in
-		await page.waitForTimeout(2000)
+		await page.waitForLoadState('networkidle').catch(() => {})
 
 		const hasTimeoutHandling =
 			(await timeoutMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||

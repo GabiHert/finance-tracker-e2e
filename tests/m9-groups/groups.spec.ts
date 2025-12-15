@@ -105,9 +105,12 @@ test.describe('M9: Groups & Collaboration', () => {
 
 		// Step 8b: Handle confirmation dialog for non-registered users
 		const confirmDialog = page.getByTestId('confirm-non-user-dialog')
-		if (await confirmDialog.isVisible({ timeout: 3000 }).catch(() => false)) {
-			await page.getByTestId('confirm-send-invite-btn').click()
-		}
+		const confirmBtn = page.getByTestId('confirm-send-invite-btn')
+		// Use Promise.race to handle optional confirmation dialog
+		await Promise.race([
+			confirmBtn.click({ timeout: 3000 }),
+			page.waitForSelector('[data-testid="invite-modal"]', { state: 'hidden', timeout: 10000 })
+		]).catch(() => {})
 
 		// Step 9: Verify invite modal closes
 		await expect(inviteModal).not.toBeVisible({ timeout: 10000 })
@@ -118,13 +121,11 @@ test.describe('M9: Groups & Collaboration', () => {
 		await page.waitForTimeout(1000)
 
 		// Check for pending invites section or individual pending invite item
-		const pendingInvite = page.getByTestId('pending-invite').first()
-		const pendingInviteSection = page.locator(':has-text("Pendente")')
+		const pendingInviteIndicator = page.getByTestId('pending-invite').first()
+			.or(page.getByText(uniqueEmail))
+			.or(page.locator(':has-text("Pendente")'))
 
-		const hasPendingInvite = await pendingInvite.isVisible({ timeout: 15000 }).catch(() => false)
-		const hasEmailInPage = await page.getByText(uniqueEmail).isVisible({ timeout: 5000 }).catch(() => false)
-
-		expect(hasPendingInvite || hasEmailInPage).toBeTruthy()
+		await expect(pendingInviteIndicator).toBeVisible({ timeout: 15000 })
 	})
 
 	test('E2E-M9-03: Should accept group invitation', async ({ page }) => {
@@ -137,34 +138,31 @@ test.describe('M9: Groups & Collaboration', () => {
 		await page.goto('/groups')
 		await expect(page.getByTestId('groups-screen')).toBeVisible()
 
-		// Step 2: Check for pending invitations section
-		const pendingInvitations = page.getByTestId('pending-invitations')
-		const pendingInvitation = page.getByTestId('pending-invitation').first()
+		// Step 2: Check for pending invitations section using .or()
+		const pendingInvitationsIndicator = page.getByTestId('pending-invitations')
+			.or(page.getByTestId('pending-invitation').first())
 
-		if (await pendingInvitations.isVisible() || await pendingInvitation.isVisible()) {
-			// Step 3: If there's a pending invitation, verify accept button exists
-			if (await pendingInvitation.isVisible()) {
-				const acceptBtn = pendingInvitation.getByTestId('accept-invitation-btn')
-				const declineBtn = pendingInvitation.getByTestId('decline-invitation-btn')
+		// Wait for either pending invitations or groups to load
+		const hasPendingInvitations = await pendingInvitationsIndicator.isVisible({ timeout: 5000 })
+			.then(() => true, () => false)
 
-				const hasAccept = await acceptBtn.isVisible().catch(() => false)
-				const hasDecline = await declineBtn.isVisible().catch(() => false)
+		if (hasPendingInvitations) {
+			// Step 3: If there's a pending invitation, verify accept/decline buttons exist
+			const invitationButtons = page.getByTestId('accept-invitation-btn')
+				.or(page.getByTestId('decline-invitation-btn'))
 
-				expect(hasAccept || hasDecline).toBeTruthy()
-			}
+			await expect(invitationButtons.first()).toBeVisible({ timeout: 5000 })
 		} else {
-			// No pending invitations - test passes (feature works but no invitations to accept)
-			// Alternatively, verify the invitation route behavior
+			// No pending invitations - verify the invitation route behavior
 			const testToken = 'test-invite-token-123'
 			await page.goto(`/groups/invite/${testToken}`)
 
-			// Page should either show invitation screen or redirect (both are valid)
-			const isInviteScreen = await page.getByTestId('accept-invitation-screen').isVisible().catch(() => false)
-			const isLoginPage = await page.getByLabel('E-mail').isVisible().catch(() => false)
-			const isGroupsPage = await page.getByTestId('groups-screen').isVisible().catch(() => false)
+			// Page should either show invitation screen, login page, or groups page (all are valid)
+			const validOutcome = page.getByTestId('accept-invitation-screen')
+				.or(page.getByLabel('E-mail'))
+				.or(page.getByTestId('groups-screen'))
 
-			// Any of these outcomes is valid - invitation flow is working
-			expect(isInviteScreen || isLoginPage || isGroupsPage).toBeTruthy()
+			await expect(validOutcome.first()).toBeVisible({ timeout: 5000 })
 		}
 	})
 
@@ -193,9 +191,9 @@ test.describe('M9: Groups & Collaboration', () => {
 		await expect(dashboardTab).toBeVisible()
 
 		// Step 6: Verify dashboard has summary metrics or empty state
-		const hasSummary = await page.getByTestId('group-summary').isVisible().catch(() => false)
-		const hasEmptyState = await page.getByTestId('group-dashboard-empty').isVisible().catch(() => false)
-		expect(hasSummary || hasEmptyState).toBeTruthy()
+		const dashboardContent = page.getByTestId('group-summary')
+			.or(page.getByTestId('group-dashboard-empty'))
+		await expect(dashboardContent.first()).toBeVisible({ timeout: 5000 })
 	})
 
 	test('E2E-M9-05: Should view group transactions', async ({ page }) => {
@@ -223,9 +221,9 @@ test.describe('M9: Groups & Collaboration', () => {
 		await expect(transactionsTab).toBeVisible()
 
 		// Step 6: Verify transactions list or empty state appears
-		const hasTransactions = await page.getByTestId('group-transaction-item').first().isVisible().catch(() => false)
-		const hasEmptyState = await page.getByTestId('group-transactions-empty').isVisible().catch(() => false)
-		expect(hasTransactions || hasEmptyState).toBeTruthy()
+		const transactionsContent = page.getByTestId('group-transaction-item').first()
+			.or(page.getByTestId('group-transactions-empty'))
+		await expect(transactionsContent).toBeVisible({ timeout: 5000 })
 	})
 
 	test('E2E-M9-06: Admin should change member role', async ({ page }) => {
@@ -251,32 +249,30 @@ test.describe('M9: Groups & Collaboration', () => {
 		// Wait for tab content
 		await page.waitForTimeout(300)
 
-		// Step 5: Check if members tab content is visible (try multiple selectors)
+		// Step 5: Check if members tab content is visible
 		const membersTab = page.getByTestId('group-members-tab')
-		const hasMembersTab = await membersTab.isVisible().catch(() => false)
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
 
-		if (hasMembersTab) {
-			// Step 6: Find a member (not admin) to promote
-			const memberItem = page.getByTestId('member-item').filter({ hasNot: page.getByTestId('admin-badge') }).first()
-			const hasMember = await memberItem.isVisible().catch(() => false)
+		// Step 6: Find a member (not admin) to promote
+		const memberItem = page.getByTestId('member-item').filter({ hasNot: page.getByTestId('admin-badge') }).first()
+		const hasMember = await memberItem.isVisible({ timeout: 3000 }).then(() => true, () => false)
 
-			if (hasMember) {
-				// Step 7: Click on member to open options
-				await memberItem.click()
+		if (hasMember) {
+			// Step 7: Click on member to open options
+			await memberItem.click()
 
-				// Step 8: Click "Change Role" or role dropdown
-				const changeRoleBtn = page.getByTestId('change-role-btn')
-				const memberRoleSelect = page.getByTestId('member-role-select')
+			// Step 8: Click "Change Role" or role dropdown - use .or() for alternatives
+			const roleControl = page.getByTestId('change-role-btn')
+				.or(page.getByTestId('member-role-select'))
+			const hasRoleControl = await roleControl.first().isVisible({ timeout: 3000 }).then(() => true, () => false)
 
-				if (await changeRoleBtn.isVisible().catch(() => false)) {
-					await changeRoleBtn.click()
-				} else if (await memberRoleSelect.isVisible().catch(() => false)) {
-					await memberRoleSelect.click()
-				}
+			if (hasRoleControl) {
+				await roleControl.first().click()
 
 				// Step 9: Select "Admin" role if dropdown is visible
 				const adminOption = page.getByRole('option', { name: /admin/i })
-				if (await adminOption.isVisible().catch(() => false)) {
+				const hasAdminOption = await adminOption.isVisible({ timeout: 3000 }).then(() => true, () => false)
+				if (hasAdminOption) {
 					await adminOption.click()
 				}
 			}
@@ -309,26 +305,27 @@ test.describe('M9: Groups & Collaboration', () => {
 
 		// Step 5: Check if members tab content is visible
 		const membersTab = page.getByTestId('group-members-tab')
-		const hasMembersTab = await membersTab.isVisible().catch(() => false)
+		await expect(membersTab).toBeVisible({ timeout: 5000 })
 
-		if (hasMembersTab) {
-			// Step 6: Get initial member count
-			const initialCount = await page.getByTestId('member-item').count()
+		// Step 6: Get initial member count
+		const initialCount = await page.getByTestId('member-item').count()
 
-			// Step 7: Find a member (not self) to remove
-			if (initialCount > 1) {
-				const memberItem = page.getByTestId('member-item').nth(1)
+		// Step 7: Find a member (not self) to remove
+		if (initialCount > 1) {
+			const memberItem = page.getByTestId('member-item').nth(1)
 
-				// Step 8: Click remove button on member (if exists)
-				const removeBtn = memberItem.getByTestId('remove-member-btn')
-				if (await removeBtn.isVisible().catch(() => false)) {
-					await removeBtn.click()
+			// Step 8: Click remove button on member (if exists)
+			const removeBtn = memberItem.getByTestId('remove-member-btn')
+			const hasRemoveBtn = await removeBtn.isVisible({ timeout: 3000 }).then(() => true, () => false)
 
-					// Step 9: Confirm removal in dialog (if dialog appears)
-					const confirmBtn = page.getByTestId('confirm-remove-btn')
-					if (await confirmBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-						await confirmBtn.click()
-					}
+			if (hasRemoveBtn) {
+				await removeBtn.click()
+
+				// Step 9: Confirm removal in dialog (if dialog appears)
+				const confirmBtn = page.getByTestId('confirm-remove-btn')
+				const hasConfirmBtn = await confirmBtn.isVisible({ timeout: 3000 }).then(() => true, () => false)
+				if (hasConfirmBtn) {
+					await confirmBtn.click()
 				}
 			}
 		}
@@ -353,30 +350,30 @@ test.describe('M9: Groups & Collaboration', () => {
 		await expect(page.getByTestId('group-detail-screen')).toBeVisible()
 
 		// Step 4: Try to click settings button (may be in header or as menu button)
-		const settingsBtn = page.getByTestId('group-settings-btn')
-		const menuBtn = page.getByRole('button', { name: /menu|options|settings/i })
+		const settingsControl = page.getByTestId('group-settings-btn')
+			.or(page.getByRole('button', { name: /menu|options|settings/i }))
 
-		if (await settingsBtn.isVisible().catch(() => false)) {
-			await settingsBtn.click()
-		} else if (await menuBtn.isVisible().catch(() => false)) {
-			await menuBtn.click()
-		}
+		const hasSettingsControl = await settingsControl.first().isVisible({ timeout: 3000 }).then(() => true, () => false)
 
-		// Step 5: Check for settings menu or leave option
-		const settingsMenu = page.getByTestId('group-settings-menu').or(page.getByTestId('group-settings-modal'))
-		const hasSettingsMenu = await settingsMenu.isVisible({ timeout: 2000 }).catch(() => false)
+		if (hasSettingsControl) {
+			await settingsControl.first().click()
 
-		if (hasSettingsMenu) {
-			// Step 6: Look for "Leave Group" option
-			const leaveBtn = page.getByTestId('leave-group-btn')
-			const leaveBtnAlt = page.getByRole('button', { name: /sair|leave/i })
+			// Step 5: Check for settings menu or leave option
+			const settingsMenu = page.getByTestId('group-settings-menu')
+				.or(page.getByTestId('group-settings-modal'))
+			const hasSettingsMenu = await settingsMenu.isVisible({ timeout: 2000 }).then(() => true, () => false)
 
-			const hasLeaveBtn = await leaveBtn.isVisible().catch(() => false) ||
-				await leaveBtnAlt.isVisible().catch(() => false)
+			if (hasSettingsMenu) {
+				// Step 6: Look for "Leave Group" option
+				const leaveBtn = page.getByTestId('leave-group-btn')
+					.or(page.getByRole('button', { name: /sair|leave/i }))
 
-			// Leave group feature exists if button is present
-			if (hasLeaveBtn) {
-				expect(hasLeaveBtn).toBeTruthy()
+				const hasLeaveBtn = await leaveBtn.first().isVisible({ timeout: 3000 }).then(() => true, () => false)
+
+				// Leave group feature exists if button is present
+				if (hasLeaveBtn) {
+					expect(hasLeaveBtn).toBeTruthy()
+				}
 			}
 		}
 		// Test verifies group detail screen is accessible - leave feature requires proper member status
@@ -498,13 +495,11 @@ test.describe('M9: Groups & Collaboration', () => {
 		const emptyState = page.getByTestId('groups-empty-state')
 
 		// Wait for either groups or empty state to be visible (loading complete)
-		await Promise.race([
-			groupCards.first().waitFor({ state: 'visible', timeout: 10000 }),
-			emptyState.waitFor({ state: 'visible', timeout: 10000 }),
-		]).catch(() => {})
+		const groupsOrEmpty = groupCards.first().or(emptyState)
+		await expect(groupsOrEmpty).toBeVisible({ timeout: 10000 })
 
 		const hasGroups = (await groupCards.count()) > 0
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
+		const hasEmptyState = await emptyState.isVisible({ timeout: 1000 }).then(() => true, () => false)
 
 		// Either groups should be visible or empty state
 		expect(hasGroups || hasEmptyState).toBeTruthy()

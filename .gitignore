@@ -12,3 +12,6 @@ tests/
 
 # Environment
 .env
+
+# Worktree configuration override
+.worktree-offset

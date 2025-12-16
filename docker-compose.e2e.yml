@@ -1,12 +1,15 @@
 # Finance Tracker - E2E Bug Test Environment
 # Uses different ports AND container names to avoid conflicts
 # Usage: docker-compose -f docker-compose.e2e.yml --env-file .env.e2e up -d
+#
+# For multi-worktree support, set E2E_CONTAINER_PREFIX environment variable:
+#   E2E_CONTAINER_PREFIX=finance-tracker-e2e-myworktree docker-compose up -d
 
 services:
   # PostgreSQL Database for E2E Bug Tests
   postgres-e2e:
     image: postgres:15-alpine
-    container_name: finance-tracker-postgres-e2e
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: e2e_user
@@ -29,7 +32,7 @@ services:
   # MinIO Object Storage for E2E Bug Tests
   minio-e2e:
     image: minio/minio:latest
-    container_name: finance-tracker-minio-e2e
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -51,7 +54,7 @@ services:
   # MinIO Client - Creates default bucket on startup
   minio-e2e-init:
     image: minio/mc:latest
-    container_name: finance-tracker-minio-e2e-init
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-minio-init
     depends_on:
       minio-e2e:
         condition: service_healthy
@@ -68,7 +71,7 @@ services:
   # Redis Cache for E2E Bug Tests
   redis-e2e:
     image: redis:7-alpine
-    container_name: finance-tracker-redis-e2e
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass e2e_redis_password
     ports:
@@ -88,7 +91,7 @@ services:
     build:
       context: ${BACKEND_PATH}
       dockerfile: ${E2E_PATH}/docker/Dockerfile.backend
-    container_name: finance-tracker-backend-e2e
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-backend
     restart: unless-stopped
     environment:
       - ENV=e2e
@@ -139,7 +142,7 @@ services:
     build:
       context: ${FRONTEND_PATH}
       dockerfile: ${E2E_PATH}/docker/Dockerfile.frontend
-    container_name: finance-tracker-frontend-e2e
+    container_name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-frontend
     restart: unless-stopped
     environment:
       - NODE_ENV=development
@@ -173,14 +176,14 @@ services:
 # Named volumes for E2E bug test data (separate from dev and other e2e)
 volumes:
   postgres_e2e_bugs_data:
-    name: finance-tracker-postgres-e2e-data
+    name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-postgres-data
   minio_e2e_bugs_data:
-    name: finance-tracker-minio-e2e-data
+    name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-minio-data
   redis_e2e_bugs_data:
-    name: finance-tracker-redis-e2e-data
+    name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-redis-data
 
 # Separate network for E2E bug tests
 networks:
   finance-tracker-e2e-network:
-    name: finance-tracker-e2e-network
+    name: ${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}-network
     driver: bridge

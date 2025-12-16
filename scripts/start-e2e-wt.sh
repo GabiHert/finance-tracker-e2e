@@ -44,8 +44,8 @@ export MINIO_E2E_CONSOLE_PORT=$E2E_MINIO_CONSOLE_PORT
 export BACKEND_E2E_PORT=$E2E_BACKEND_PORT
 export FRONTEND_E2E_PORT=$E2E_FRONTEND_PORT
 
-# Container naming
-export COMPOSE_PROJECT_NAME="$E2E_CONTAINER_PREFIX"
+# Container naming - use E2E_CONTAINER_PREFIX for docker-compose
+export E2E_CONTAINER_PREFIX="$E2E_CONTAINER_PREFIX"
 
 # Paths
 export BACKEND_PATH="$REPO_ROOT/backend"
@@ -67,15 +67,14 @@ echo "  Frontend   : localhost:$FRONTEND_E2E_PORT"
 echo ""
 
 echo -e "${YELLOW}Starting E2E infrastructure...${NC}"
-# Use worktree overlay to remove hardcoded container names
-docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" -f "$E2E_DIR/docker-compose.e2e.worktree.yml" up -d
+docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" up -d
 
 echo ""
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
 
-# Container naming: {project}-{service}-1
-PG_CONTAINER="${COMPOSE_PROJECT_NAME}-postgres-e2e-1"
-REDIS_CONTAINER="${COMPOSE_PROJECT_NAME}-redis-e2e-1"
+# Container naming from docker-compose: {E2E_CONTAINER_PREFIX}-{service}
+PG_CONTAINER="${E2E_CONTAINER_PREFIX}-postgres"
+REDIS_CONTAINER="${E2E_CONTAINER_PREFIX}-redis"
 
 # Wait for PostgreSQL
 echo -n "Waiting for PostgreSQL..."

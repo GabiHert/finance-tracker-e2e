@@ -32,7 +32,7 @@ export MINIO_E2E_API_PORT=$E2E_MINIO_API_PORT
 export MINIO_E2E_CONSOLE_PORT=$E2E_MINIO_CONSOLE_PORT
 export BACKEND_E2E_PORT=$E2E_BACKEND_PORT
 export FRONTEND_E2E_PORT=$E2E_FRONTEND_PORT
-export COMPOSE_PROJECT_NAME="$E2E_CONTAINER_PREFIX"
+export E2E_CONTAINER_PREFIX="$E2E_CONTAINER_PREFIX"
 export BACKEND_PATH="$REPO_ROOT/backend"
 export FRONTEND_PATH="$REPO_ROOT/frontend"
 export INFRA_PATH="$REPO_ROOT/infra"
@@ -41,9 +41,9 @@ export E2E_PATH="$E2E_DIR"
 # Check for --clean flag
 if [ "$1" == "--clean" ]; then
     echo "Removing volumes..."
-    docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" -f "$E2E_DIR/docker-compose.e2e.worktree.yml" down -v --remove-orphans
+    docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" down -v --remove-orphans
 else
-    docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" -f "$E2E_DIR/docker-compose.e2e.worktree.yml" down
+    docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" down
 fi
 
 echo -e "${GREEN}E2E services stopped.${NC}"

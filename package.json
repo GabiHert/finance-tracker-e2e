@@ -1,0 +1,36 @@
+{
+  "name": "finance-tracker-e2e",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Finance Tracker application",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "./scripts/start-e2e.sh",
+    "stop": "./scripts/stop-e2e.sh",
+    "stop:clean": "./scripts/stop-e2e.sh -v",
+    "restart": "./scripts/restart-e2e.sh",
+    "restart:frontend": "./scripts/restart-e2e.sh frontend",
+    "restart:backend": "./scripts/restart-e2e.sh backend",
+    "restart:db": "./scripts/restart-e2e.sh db",
+    "reset-db": "./scripts/reset-db.sh",
+    "wait": "./scripts/wait-for-services.sh",
+    "test": "playwright test",
+    "test:clean": "npm run reset-db && npm run wait && npm test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:m2": "playwright test tests/m2-auth/",
+    "test:m3": "playwright test tests/m3-categories/",
+    "test:m4": "playwright test tests/m4-transactions/"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^22.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

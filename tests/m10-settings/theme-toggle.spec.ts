@@ -16,45 +16,32 @@ test.describe('M10: Theme Toggle', () => {
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Find theme toggle
-		const themeToggle = page.getByTestId('theme-toggle')
-		const themeSelector = page.getByTestId('theme-selector')
+		// Step 2: Find theme selector (testId: theme-select)
+		const themeSelect = page.getByTestId('theme-select')
+		const htmlElement = page.locator('html')
 
-		if (await themeToggle.isVisible()) {
-			// Step 3: Get initial theme
-			const htmlElement = page.locator('html')
-			const initialClass = await htmlElement.getAttribute('class')
-			const isDarkInitially = initialClass?.includes('dark')
+		// Wait for the theme selector to be visible
+		await expect(themeSelect).toBeVisible({ timeout: 5000 })
 
-			// Step 4: Toggle theme
-			await themeToggle.click()
+		// Step 3: Click theme selector to open dropdown
+		await themeSelect.click()
 
-			// Step 5: Wait for theme change and verify
-			if (isDarkInitially) {
-				await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
-			} else {
-				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
-			}
-		} else if (await themeSelector.isVisible()) {
-			// Alternative: theme selector dropdown
-			await themeSelector.click()
+		// Step 4: Select dark theme option
+		const darkOption = page.getByRole('option', { name: /escuro|dark/i })
+		await expect(darkOption).toBeVisible({ timeout: 3000 })
+		await darkOption.click()
 
-			const darkOption = page.getByRole('option', { name: /dark|escuro/i })
-			const lightOption = page.getByRole('option', { name: /light|claro/i })
+		// Step 5: Verify dark mode is applied
+		await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 
-			// Select dark mode
-			if (await darkOption.isVisible()) {
-				await darkOption.click()
-				await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 3000 })
-			}
+		// Step 6: Switch back to light mode
+		await themeSelect.click()
+		const lightOption = page.getByRole('option', { name: /claro|light/i })
+		await expect(lightOption).toBeVisible({ timeout: 3000 })
+		await lightOption.click()
 
-			// Select light mode
-			await themeSelector.click()
-			if (await lightOption.isVisible()) {
-				await lightOption.click()
-				await expect(page.locator('html')).not.toHaveClass(/dark/, { timeout: 3000 })
-			}
-		}
+		// Step 7: Verify light mode is applied (no dark class)
+		await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
 	})
 
 	test('M10-E2E-08b: Should persist theme preference after reload', async ({ page }) => {
@@ -62,37 +49,42 @@ test.describe('M10: Theme Toggle', () => {
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Toggle to dark mode
-		const themeToggle = page.getByTestId('theme-toggle')
+		// Step 2: Find theme selector (testId: theme-select)
+		const themeSelect = page.getByTestId('theme-select')
+		const htmlElement = page.locator('html')
 
-		if (await themeToggle.isVisible()) {
-			// Get current state
-			const htmlElement = page.locator('html')
-			const initialClass = await htmlElement.getAttribute('class')
-			const isDarkInitially = initialClass?.includes('dark')
+		// Wait for the theme selector to be visible
+		await expect(themeSelect).toBeVisible({ timeout: 5000 })
 
-			// If not dark, toggle to dark
-			if (!isDarkInitially) {
-				await themeToggle.click()
-			}
+		// Step 3: Select dark theme
+		await themeSelect.click()
+		const darkOption = page.getByRole('option', { name: /escuro|dark/i })
+		await expect(darkOption).toBeVisible({ timeout: 3000 })
+		await darkOption.click()
 
-			// Step 3: Verify dark mode is active
-			await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
+		// Step 4: Verify dark mode is active
+		await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
 
-			// Step 4: Reload the page
-			await page.reload()
+		// Step 5: Reload the page
+		await page.reload()
 
-			// Step 5: Verify dark mode persisted
-			await expect(htmlElement).toHaveClass(/dark/)
+		// Step 6: Verify dark mode persisted after reload
+		await expect(htmlElement).toHaveClass(/dark/, { timeout: 5000 })
 
-			// Step 6: Toggle back to light mode
-			await page.getByTestId('theme-toggle').click()
-			await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
+		// Step 7: Switch to light mode
+		const themeSelectAfterReload = page.getByTestId('theme-select')
+		await expect(themeSelectAfterReload).toBeVisible({ timeout: 5000 })
+		await themeSelectAfterReload.click()
+		const lightOption = page.getByRole('option', { name: /claro|light/i })
+		await expect(lightOption).toBeVisible({ timeout: 3000 })
+		await lightOption.click()
 
-			// Step 7: Reload and verify light mode persisted
-			await page.reload()
-			await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
-		}
+		// Step 8: Verify light mode is active
+		await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
+
+		// Step 9: Reload and verify light mode persisted
+		await page.reload()
+		await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 5000 })
 	})
 
 	test('M10-E2E-08c: Should apply correct colors in dark mode', async ({ page }) => {
@@ -100,52 +92,40 @@ test.describe('M10: Theme Toggle', () => {
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Ensure dark mode is active
-		const themeToggle = page.getByTestId('theme-toggle')
-		const themeSelector = page.getByTestId('theme-selector')
+		// Step 2: Find and use the theme selector (testId: theme-select)
+		const themeSelect = page.getByTestId('theme-select')
 		const htmlElement = page.locator('html')
 
-		if (await themeToggle.isVisible()) {
-			const currentClass = await htmlElement.getAttribute('class')
-			if (!currentClass?.includes('dark')) {
-				await themeToggle.click()
-				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
-			}
-		} else if (await themeSelector.isVisible()) {
-			// Use theme selector dropdown
-			await themeSelector.click()
-			const darkOption = page.getByRole('option', { name: /dark|escuro/i })
-			if (await darkOption.isVisible()) {
-				await darkOption.click()
-				await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
-			}
-		}
+		// Wait for the theme selector to be visible
+		await expect(themeSelect).toBeVisible({ timeout: 5000 })
 
-		// Step 3: Verify dark mode class is applied (defensive)
-		const htmlClass = await htmlElement.getAttribute('class')
-		const hasDarkClass = htmlClass?.includes('dark') || false
+		// Step 3: Click theme selector to open dropdown
+		await themeSelect.click()
 
-		if (hasDarkClass) {
-			// Step 4: Check background color change
-			const bodyBgColor = await page.evaluate(() => {
-				return getComputedStyle(document.body).backgroundColor
-			})
+		// Step 4: Select dark theme option
+		const darkOption = page.getByRole('option', { name: /escuro|dark/i })
+		await expect(darkOption).toBeVisible({ timeout: 3000 })
+		await darkOption.click()
 
-			// Dark mode should have a dark background (low RGB values)
-			// Parse the rgb color - handle both rgb() and rgba() formats
-			const rgbMatch = bodyBgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
-			if (rgbMatch) {
-				const [, rStr, gStr, bStr] = rgbMatch
-				const r = parseInt(rStr || '0')
-				const g = parseInt(gStr || '0')
-				const b = parseInt(bStr || '0')
-				// In dark mode, background should be dark (sum of RGB < 450 for more tolerance)
-				// Some dark themes use slightly lighter backgrounds
-				expect(r + g + b).toBeLessThan(450)
-			}
-		} else {
-			// TODO: Skip color verification when dark mode isn't enabled
-			test.skip(true, 'Dark mode toggle not implemented - skipping color verification')
+		// Step 5: Verify dark mode class is applied to html element
+		await expect(htmlElement).toHaveClass(/dark/, { timeout: 3000 })
+
+		// Step 6: Check background color change
+		const bodyBgColor = await page.evaluate(() => {
+			return getComputedStyle(document.body).backgroundColor
+		})
+
+		// Dark mode should have a dark background (low RGB values)
+		// Parse the rgb color - handle both rgb() and rgba() formats
+		const rgbMatch = bodyBgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+		if (rgbMatch) {
+			const [, rStr, gStr, bStr] = rgbMatch
+			const r = parseInt(rStr || '0')
+			const g = parseInt(gStr || '0')
+			const b = parseInt(bStr || '0')
+			// In dark mode, background should be dark (sum of RGB < 450 for more tolerance)
+			// Some dark themes use slightly lighter backgrounds
+			expect(r + g + b).toBeLessThan(450)
 		}
 	})
 
@@ -154,32 +134,36 @@ test.describe('M10: Theme Toggle', () => {
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Ensure light mode is active
-		const themeToggle = page.getByTestId('theme-toggle')
+		// Step 2: Find theme selector
+		const themeSelect = page.getByTestId('theme-select')
 		const htmlElement = page.locator('html')
 
-		if (await themeToggle.isVisible()) {
-			const currentClass = await htmlElement.getAttribute('class')
-			if (currentClass?.includes('dark')) {
-				await themeToggle.click()
-				await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
-			}
-		}
+		// Wait for the theme selector to be visible
+		await expect(themeSelect).toBeVisible({ timeout: 5000 })
 
-		// Step 3: Verify dark mode class is NOT applied
-		await expect(htmlElement).not.toHaveClass(/dark/)
+		// Step 3: Ensure light mode is active
+		await themeSelect.click()
+		const lightOption = page.getByRole('option', { name: /claro|light/i })
+		await expect(lightOption).toBeVisible({ timeout: 3000 })
+		await lightOption.click()
 
-		// Step 4: Check background color change
+		// Step 4: Verify dark mode class is NOT applied
+		await expect(htmlElement).not.toHaveClass(/dark/, { timeout: 3000 })
+
+		// Step 5: Check background color change
 		const bodyBgColor = await page.evaluate(() => {
 			return getComputedStyle(document.body).backgroundColor
 		})
 
 		// Light mode should have a light background (high RGB values)
-		const rgbMatch = bodyBgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+		const rgbMatch = bodyBgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
 		if (rgbMatch) {
-			const [, r, g, b] = rgbMatch.map(Number)
+			const [, rStr, gStr, bStr] = rgbMatch
+			const r = parseInt(rStr || '0')
+			const g = parseInt(gStr || '0')
+			const b = parseInt(bStr || '0')
 			// In light mode, background should be light (sum of RGB > 600, roughly > 200 each)
-			expect(parseInt(r as any) + parseInt(g as any) + parseInt(b as any)).toBeGreaterThan(600)
+			expect(r + g + b).toBeGreaterThan(600)
 		}
 	})
 
@@ -188,47 +172,41 @@ test.describe('M10: Theme Toggle', () => {
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Look for system theme option
-		const themeSelector = page.getByTestId('theme-selector')
-		const systemOption = page.getByTestId('theme-system')
+		// Step 2: Find theme selector
+		const themeSelect = page.getByTestId('theme-select')
 
-		if (await themeSelector.isVisible()) {
-			await themeSelector.click()
+		// Wait for the theme selector to be visible
+		await expect(themeSelect).toBeVisible({ timeout: 5000 })
 
-			const systemOptionInList = page.getByRole('option', { name: /system|sistema|auto/i })
-			if (await systemOptionInList.isVisible()) {
-				await systemOptionInList.click()
+		// Step 3: Click theme selector to open dropdown
+		await themeSelect.click()
 
-				// Verify system option is selected
-				await expect(themeSelector).toContainText(/system|sistema|auto/i)
-			}
-		} else if (await systemOption.isVisible()) {
-			// Radio button style selection
-			await systemOption.click()
-			await expect(systemOption).toBeChecked()
-		}
+		// Step 4: Verify system option exists
+		const systemOption = page.getByRole('option', { name: /sistema|system|auto/i })
+		await expect(systemOption).toBeVisible({ timeout: 3000 })
+
+		// Step 5: Select system option
+		await systemOption.click()
+
+		// Step 6: Verify system option is now selected (displayed in button text)
+		await expect(themeSelect).toContainText(/sistema|system/i, { timeout: 3000 })
 	})
 
-	test('M10-E2E-08f: Should show theme toggle in settings appearance section', async ({ page }) => {
+	test('M10-E2E-08f: Should show theme selector in settings preferences section', async ({ page }) => {
 		// Step 1: Navigate to settings
 		await page.goto('/settings')
 		await expect(page.getByTestId('settings-screen')).toBeVisible()
 
-		// Step 2: Look for appearance section
-		const appearanceSection = page.getByTestId('appearance-section')
-		const displaySection = page.getByText(/apar[eê]ncia|appearance|display/i).first()
+		// Step 2: Look for preferences section
+		const preferencesSection = page.getByTestId('preferences-section')
+		await expect(preferencesSection).toBeVisible({ timeout: 5000 })
 
-		if (await appearanceSection.isVisible()) {
-			// Step 3: Verify theme toggle is inside appearance section
-			const themeToggle = appearanceSection.getByTestId('theme-toggle')
-			await expect(themeToggle).toBeVisible()
+		// Step 3: Verify theme selector is inside preferences section
+		const themeSelect = preferencesSection.getByTestId('theme-select')
+		await expect(themeSelect).toBeVisible()
 
-			// Step 4: Verify label text
-			const themeLabel = appearanceSection.getByText(/tema|theme|modo escuro|dark mode/i)
-			await expect(themeLabel.first()).toBeVisible()
-		} else if (await displaySection.isVisible()) {
-			// Theme setting should be near display section
-			expect(true).toBeTruthy()
-		}
+		// Step 4: Verify label text "Tema" is visible
+		const themeLabel = preferencesSection.getByText(/tema|theme/i)
+		await expect(themeLabel.first()).toBeVisible()
 	})
 })

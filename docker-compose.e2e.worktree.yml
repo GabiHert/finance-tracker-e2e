@@ -1,0 +1,22 @@
+# Finance Tracker E2E - Worktree Override
+# This overlay removes hardcoded container names to allow COMPOSE_PROJECT_NAME to work
+# Usage: docker-compose -f docker-compose.e2e.yml -f docker-compose.e2e.worktree.yml up -d
+
+services:
+  postgres-e2e:
+    container_name: null
+
+  minio-e2e:
+    container_name: null
+
+  minio-e2e-init:
+    container_name: null
+
+  redis-e2e:
+    container_name: null
+
+  backend-e2e:
+    container_name: null
+
+  frontend-e2e:
+    container_name: null

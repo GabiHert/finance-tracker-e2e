@@ -493,7 +493,7 @@ test.describe('M4: Transaction CRUD Operations', () => {
 			const combobox = categoryFilterContainer.getByRole('combobox')
 
 			// Check if combobox exists and is visible
-			if (await combobox.isVisible().catch(() => false)) {
+			if (await combobox.isVisible().then(() => true, () => false)) {
 				await combobox.click()
 
 				// Step 3: Select first category option (not "All")
@@ -621,8 +621,8 @@ test.describe('M4: Transaction CRUD Operations', () => {
 			const errorMessage = page.getByTestId('input-error-message')
 			const errorText = page.locator('.text-red-500, .text-destructive, [class*="error"]')
 
-			const hasError = await errorMessage.isVisible().catch(() => false) ||
-				await errorText.first().isVisible().catch(() => false)
+			const hasError = await errorMessage.isVisible().then(() => true, () => false) ||
+				await errorText.first().isVisible().then(() => true, () => false)
 
 			// Step 6: Modal should remain open (validation failed)
 			const modalStillOpen = await page.getByRole('dialog').isVisible()

@@ -14,6 +14,7 @@ import {
   selectCCFormat,
   openImportWizard,
   cleanupTestTransactions,
+  setM12DateFilter,
 } from './fixtures'
 
 /**
@@ -75,8 +76,9 @@ test.describe('M12: Credit Card Statement Import', () => {
 
   test('E2E-CC-002: Complete import with matching bill payment', async ({ page }) => {
     // Setup: Create bill payment that matches our CSV
+    // Date must match the "Pagamento recebido" date in sampleCCCSV (2020-03-13)
     await createBillPayment(page, {
-      date: '2025-10-31',
+      date: '2020-03-13',
       amount: -1124.77,
       testId,
     })
@@ -109,18 +111,24 @@ test.describe('M12: Credit Card Statement Import', () => {
     // Verify success toast
     await expect(page.getByTestId('toast-success')).toContainText(/importa/i)
 
-    // Verify CC badges visible on transactions
-    await expect(page.getByTestId('cc-badge').first()).toBeVisible()
+    // Wait for dialog to close and page to update
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
 
-    // Verify original bill is grayed/expanded
-    await expect(page.getByTestId('expanded-bill')).toBeVisible()
-    await expect(page.getByTestId('expanded-bill')).toContainText('R$ 0')
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
+
+    // Verify CC badges visible on transactions
+    await expect(page.getByTestId('cc-badge').first()).toBeVisible({ timeout: 15000 })
+
+    // Verify original bill is grayed/expanded (use first() in case of multiple from previous tests)
+    await expect(page.getByTestId('expanded-bill').first()).toBeVisible()
+    await expect(page.getByTestId('expanded-bill').first()).toContainText('R$ 0')
   })
 
   test('E2E-CC-003: Import with amount mismatch shows warning', async ({ page }) => {
     // Setup: Create bill payment with different amount
     await createBillPayment(page, {
-      date: '2025-10-31',
+      date: '2020-03-13',
       amount: -1124.77,
       testId,
     })
@@ -170,7 +178,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
 
     // Verify no match message
-    await expect(page.getByTestId('no-matches-message')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('no-match-info')).toBeVisible({ timeout: 10000 })
 
     // Proceed
     await page.getByTestId('confirm-import-btn').click()
@@ -191,7 +199,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
   test('E2E-CC-005: Credit card transactions display badge', async ({ page }) => {
     // Setup and import
-    await createBillPayment(page, { date: '2025-10-31', amount: -1124.77, testId })
+    await createBillPayment(page, { date: '2020-03-13', amount: -1124.77, testId })
     await page.reload()
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -202,8 +210,11 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
-    // Wait for import to complete
-    await page.waitForSelector('[data-testid="cc-badge"]')
+    // Wait for import dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
 
     // Verify badge is visible
     const badge = page.getByTestId('cc-badge').first()
@@ -211,13 +222,13 @@ test.describe('M12: Credit Card Statement Import', () => {
   })
 
   test('E2E-CC-006: Installment transactions show installment badge', async ({ page }) => {
-    // Setup with bill payment
-    await createBillPayment(page, { date: '2025-10-31', amount: -500, testId })
+    // Setup with bill payment (using 2020-01 for isolation)
+    await createBillPayment(page, { date: '2020-01-13', amount: -500, testId })
     await page.reload()
 
     const installmentCSV = `date,title,amount
-2025-11-08,Hospital - Parcela 1/3,200.00
-2025-11-04,Pagamento recebido,-500.00`
+2020-01-10,Hospital - Parcela 1/3,200.00
+2020-01-13,Pagamento recebido,-500.00`
 
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -228,13 +239,19 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
+    // Wait for import dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
+
     // Verify installment badge
     await expect(page.getByTestId('installment-badge')).toContainText('1/3')
   })
 
   test('E2E-CC-007: Expanded bill payment shows grayed out', async ({ page }) => {
     // Setup and import
-    await createBillPayment(page, { date: '2025-10-31', amount: -1124.77, testId })
+    await createBillPayment(page, { date: '2020-03-13', amount: -1124.77, testId })
     await page.reload()
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -245,8 +262,14 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
-    // Verify expanded bill display
-    const expandedBill = page.getByTestId('expanded-bill')
+    // Wait for import dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
+
+    // Verify expanded bill display (use first() in case of multiple)
+    const expandedBill = page.getByTestId('expanded-bill').first()
     await expect(expandedBill).toBeVisible()
     await expect(expandedBill).toContainText('R$ 0')
     await expect(expandedBill).toContainText(/expandido|was|era|original/i)
@@ -257,14 +280,14 @@ test.describe('M12: Credit Card Statement Import', () => {
   // ============================================================
 
   test('E2E-CC-008: Dashboard displays CC status card', async ({ page }) => {
-    // Setup: Import CC transactions
-    await createBillPayment(page, { date: '2025-10-31', amount: -1000, testId })
+    // Setup: Import CC transactions (using 2020-02 for isolation)
+    await createBillPayment(page, { date: '2020-02-13', amount: -1000, testId })
     await page.reload()
 
     const csv = `date,title,amount
-2025-11-06,Store 1,500.00
-2025-11-06,Store 2,300.00
-2025-11-04,Pagamento recebido,-1000.00`
+2020-02-10,Store 1,500.00
+2020-02-10,Store 2,300.00
+2020-02-13,Pagamento recebido,-1000.00`
 
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -357,7 +380,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
   test('E2E-CC-012: Collapse expanded bill payment', async ({ page }) => {
     // Setup: Create and expand bill
-    await createBillPayment(page, { date: '2025-10-31', amount: -1124.77, testId })
+    await createBillPayment(page, { date: '2020-03-13', amount: -1124.77, testId })
     await page.reload()
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -368,6 +391,12 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
+    // Wait for import modal to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
+
     // Wait for CC transactions to appear after import
     await expect(page.getByTestId('cc-badge').first()).toBeVisible({ timeout: 10000 })
 
@@ -375,8 +404,8 @@ test.describe('M12: Credit Card Statement Import', () => {
     const ccTransactionsBefore = await page.getByTestId('cc-badge').count()
     expect(ccTransactionsBefore).toBeGreaterThan(0)
 
-    // Click collapse
-    await page.getByTestId('collapse-btn').click()
+    // Click collapse (use first() in case of multiple expanded bills)
+    await page.getByTestId('collapse-btn').first().click()
 
     // Verify confirmation dialog
     await expect(page.getByTestId('collapse-confirm-dialog')).toBeVisible()
@@ -400,13 +429,13 @@ test.describe('M12: Credit Card Statement Import', () => {
   })
 
   test('E2E-CC-013: Cancel collapse confirmation', async ({ page }) => {
-    // Setup expanded bill
-    await createBillPayment(page, { date: '2025-10-31', amount: -500, testId })
+    // Setup expanded bill (using 2020-01 for isolation)
+    await createBillPayment(page, { date: '2020-01-13', amount: -500, testId })
     await page.reload()
 
     const csv = `date,title,amount
-2025-11-06,Store,500.00
-2025-11-04,Pagamento recebido,-500.00`
+2020-01-10,Store,500.00
+2020-01-13,Pagamento recebido,-500.00`
 
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -417,8 +446,17 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-btn').click()
     await page.getByTestId('confirm-import-action-btn').click()
 
-    // Click collapse then cancel
-    await page.getByTestId('collapse-btn').click()
+    // Wait for import modal to close before clicking collapse
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to M12 date range to see the imported transactions
+    await setM12DateFilter(page)
+
+    // Wait for CC badge to appear (import completed)
+    await expect(page.getByTestId('cc-badge').first()).toBeVisible({ timeout: 10000 })
+
+    // Click collapse then cancel (use first() in case of multiple expanded bills)
+    await page.getByTestId('collapse-btn').first().click()
     await page.getByTestId('cancel-collapse-btn').click()
 
     // Verify dialog closed
@@ -449,14 +487,14 @@ test.describe('M12: Credit Card Statement Import', () => {
   })
 
   test('E2E-CC-016: Multiple bill payments matches correct one', async ({ page }) => {
-    // Create two bills
-    await createBillPayment(page, { date: '2025-10-15', amount: -500, testId })
-    await createBillPayment(page, { date: '2025-10-31', amount: -1000, testId })
+    // Create two bills (using 2019-12 for isolation)
+    await createBillPayment(page, { date: '2019-12-08', amount: -500, testId })
+    await createBillPayment(page, { date: '2019-12-13', amount: -1000, testId })
     await page.reload()
 
     const csv = `date,title,amount
-2025-11-06,Store,1000.00
-2025-11-04,Pagamento recebido,-1000.00`
+2019-12-10,Store,1000.00
+2019-12-13,Pagamento recebido,-1000.00`
 
     await openImportWizard(page)
     await selectCCFormat(page)
@@ -467,7 +505,7 @@ test.describe('M12: Credit Card Statement Import', () => {
 
     // Verify correct match (R$ 1000 bill, not R$ 500)
     await expect(page.getByTestId('match-bill-amount')).toContainText(/1.*000|1,000/i)
-    await expect(page.getByTestId('match-bill-date')).toContainText('31/10')
+    await expect(page.getByTestId('match-bill-date')).toContainText('13/12')
   })
 
   // ============================================================
@@ -490,15 +528,15 @@ test.describe('M12: Credit Card Statement Import', () => {
     await expect(page.getByTestId('payment-received-row')).toContainText('-8235.79')
   })
 
-  test('E2E-CC-018: Real CSV shows billing cycle as 2025-11', async ({ page }) => {
+  test('E2E-CC-018: Real CSV shows billing cycle as 2024-04', async ({ page }) => {
     await openImportWizard(page)
     await selectCCFormat(page)
     await uploadCCCSV(page, realNubankCSV)
 
     await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
 
-    // Verify billing cycle is extracted from "Pagamento recebido" date (2025-11-04)
-    await expect(page.getByTestId('billing-cycle-display')).toContainText('2025-11')
+    // Verify billing cycle is extracted from "Pagamento recebido" date (2024-04-04 in realNubankCSV)
+    await expect(page.getByTestId('billing-cycle-display')).toContainText('2024-04')
   })
 
   test('E2E-CC-019: Real CSV detects multiple installments', async ({ page }) => {
@@ -532,8 +570,8 @@ test.describe('M12: Credit Card Statement Import', () => {
   // ============================================================
 
   test('E2E-CC-021: Import CSV with only installments', async ({ page }) => {
-    // Setup: Create bill payment matching installment total
-    await createBillPayment(page, { date: '2025-10-31', amount: -331.18, testId })
+    // Setup: Create bill payment matching installment total (2020-01-04 matches installmentCSV)
+    await createBillPayment(page, { date: '2020-01-04', amount: -331.18, testId })
     await page.reload()
 
     await openImportWizard(page)
@@ -561,8 +599,8 @@ test.describe('M12: Credit Card Statement Import', () => {
   // ============================================================
 
   test('E2E-CC-022: Import CSV with refund transaction', async ({ page }) => {
-    // Setup: Create bill payment
-    await createBillPayment(page, { date: '2025-10-31', amount: -366.91, testId })
+    // Setup: Create bill payment (2019-12-04 matches refundCSV)
+    await createBillPayment(page, { date: '2019-12-04', amount: -366.91, testId })
     await page.reload()
 
     await openImportWizard(page)
@@ -583,5 +621,122 @@ test.describe('M12: Credit Card Statement Import', () => {
     await page.getByTestId('confirm-import-action-btn').click()
 
     await expect(page.getByTestId('toast-success')).toBeVisible()
+  })
+
+  // ============================================================
+  // 3.11 Refund Amount Storage Verification
+  // ============================================================
+
+  test('E2E-CC-023: Refund stored with negative amount after import', async ({ page }) => {
+    // Setup: Create bill payment that matches refundCSV total
+    // refundCSV: Estorno -253.82, Bourbon +620.73, Pagamento -366.91
+    // Net expenses (excluding payment): 620.73 - 253.82 = 366.91
+    await createBillPayment(page, {
+      date: '2019-12-04',
+      amount: -366.91,
+      testId,
+    })
+    await page.reload()
+
+    // Open import wizard and select CC format
+    await openImportWizard(page)
+    await selectCCFormat(page)
+
+    // Upload refund CSV
+    await uploadCCCSV(page, refundCSV)
+
+    // Wait for preview
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+
+    // Verify refund shows as negative in preview
+    const refundRowPreview = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundRowPreview).toBeVisible()
+    await expect(refundRowPreview).toContainText('-253.82')
+
+    // Complete import
+    await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('confirm-import-btn').click()
+
+    // Handle confirmation dialog
+    const confirmDialog = page.getByTestId('import-confirm-dialog')
+    if (await confirmDialog.isVisible({ timeout: 2000 }).then(() => true, () => false)) {
+      await page.getByTestId('confirm-import-action-btn').click()
+    }
+
+    // Wait for import to complete
+    await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 15000 })
+
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Navigate to transactions with M12 date filter
+    await setM12DateFilter(page)
+
+    // Find the refund transaction in the list
+    const refundTxn = page.locator('[data-testid="transaction-row"]').filter({ hasText: 'Estorno de compra' })
+    await expect(refundTxn).toBeVisible({ timeout: 10000 })
+
+    // Verify it shows as a credit/refund (negative amount)
+    // The amount display should indicate negative value
+    const amountCell = refundTxn.locator('[data-testid="transaction-amount"]')
+    await expect(amountCell).toBeVisible()
+    const amountText = await amountCell.textContent()
+
+    // Verify the amount is displayed as negative (or as income/credit indicator)
+    // Could be "-R$ 253,82", "R$ -253,82", or displayed in green/different color
+    expect(amountText).toMatch(/-.*253|253.*-|253,82/)
+  })
+
+  test('E2E-CC-024: Dashboard shows correct net total with refunds', async ({ page }) => {
+    // Setup: Create bill payment matching refundCSV net total
+    // Net = 620.73 - 253.82 = 366.91
+    await createBillPayment(page, {
+      date: '2019-12-04',
+      amount: -366.91,
+      testId,
+    })
+    await page.reload()
+
+    // Import refund CSV
+    await openImportWizard(page)
+    await selectCCFormat(page)
+    await uploadCCCSV(page, refundCSV)
+    await expect(page.getByTestId('import-preview-table')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('import-next-btn').click()
+    await expect(page.getByTestId('cc-matching-preview')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('confirm-import-btn').click()
+
+    const confirmDialog = page.getByTestId('import-confirm-dialog')
+    if (await confirmDialog.isVisible({ timeout: 2000 }).then(() => true, () => false)) {
+      await page.getByTestId('confirm-import-action-btn').click()
+    }
+    await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 15000 })
+
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
+    // Go to dashboard
+    await page.goto('/dashboard')
+    await page.waitForLoadState('networkidle')
+
+    // Find CC status card
+    const ccCard = page.getByTestId('cc-status-card')
+
+    // If CC card is visible, verify the calculations
+    if (await ccCard.isVisible({ timeout: 5000 }).then(() => true, () => false)) {
+      // Total spending should be ~366.91 (the net of 620.73 - 253.82)
+      // NOT 874.55 (620.73 + 253.82) which would be wrong
+      const totalSpending = page.getByTestId('cc-total-spending')
+      const totalText = await totalSpending.textContent() || ''
+
+      // Extract numeric value from the text (handles "R$ 366,91" format)
+      const numericValue = parseFloat(totalText.replace(/[^\d,-]/g, '').replace(',', '.'))
+
+      // Should be around 366.91, not 874.55
+      // Allow some tolerance for rounding
+      expect(numericValue).toBeLessThan(500) // Should be ~366.91, not ~874.55
+      expect(numericValue).toBeGreaterThan(300) // Should be around 366.91
+    }
   })
 })

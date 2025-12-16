@@ -290,9 +290,9 @@ test.describe('M3: Delete Category with Transactions', () => {
     const toastAlert = page.locator('[role="alert"]')
 
     const hasSuccessToast =
-      (await toastSuccess.isVisible({ timeout: 5000 }).catch(() => false)) ||
-      (await toastText.isVisible({ timeout: 5000 }).catch(() => false)) ||
-      (await toastAlert.isVisible({ timeout: 5000 }).catch(() => false))
+      (await toastSuccess.isVisible({ timeout: 5000 }).then(() => true, () => false)) ||
+      (await toastText.isVisible({ timeout: 5000 }).then(() => true, () => false)) ||
+      (await toastAlert.isVisible({ timeout: 5000 }).then(() => true, () => false))
 
     expect(hasSuccessToast).toBeTruthy()
 

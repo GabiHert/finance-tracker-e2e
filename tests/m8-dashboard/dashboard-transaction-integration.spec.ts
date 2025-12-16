@@ -375,7 +375,7 @@ test.describe('M8: Dashboard Transaction Integration', () => {
 				const chartContainer = donutChart.locator('svg, canvas, [data-testid="chart-container"]')
 
 				const hasSegments = (await chartSegments.count()) > 0
-				const hasLegend = await chartLegend.isVisible().catch(() => false)
+				const hasLegend = await chartLegend.isVisible().then(() => true, () => false)
 				const hasChartElement = (await chartContainer.count()) > 0
 
 				// Should have some chart data visible

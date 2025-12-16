@@ -102,8 +102,8 @@ test.describe('BUG: Category Icon and Text Display Issues', () => {
         .or(categoryCard.getByText(categoryName))
 
       // Both should be visible
-      const isIconVisible = await iconElement.first().isVisible().catch(() => false)
-      const isTextVisible = await textElement.first().isVisible().catch(() => false)
+      const isIconVisible = await iconElement.first().isVisible().then(() => true, () => false)
+      const isTextVisible = await textElement.first().isVisible().then(() => true, () => false)
 
       expect(isIconVisible).toBe(true)
       expect(isTextVisible).toBe(true)
@@ -311,7 +311,7 @@ test.describe('BUG: Category Icon and Text Display Issues', () => {
           .or(categoryCard.locator('svg').first())
           .or(categoryCard.locator('i[class*="fa-"]').first())
 
-        const iconVisible = await iconElement.first().isVisible().catch(() => false)
+        const iconVisible = await iconElement.first().isVisible().then(() => true, () => false)
 
         // This will FAIL if any icon is not visible
         expect(iconVisible).toBe(true)

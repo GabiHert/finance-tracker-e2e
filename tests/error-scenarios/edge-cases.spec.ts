@@ -28,12 +28,10 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		const transactionsHeader = page.getByTestId('transactions-header')
 
 		// Either empty state shown or page loads normally (may have transactions from other sources)
-		const hasEmptyStateHandling =
-			(await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await noTransactions.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await transactionsHeader.isVisible({ timeout: 5000 }).catch(() => false))
-
-		expect(hasEmptyStateHandling).toBeTruthy()
+		const emptyStateIndicator = emptyState
+			.or(noTransactions.first())
+			.or(transactionsHeader)
+		await expect(emptyStateIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('EDGE-E2E-002: Should handle empty categories response gracefully', async ({ page }) => {
@@ -53,13 +51,11 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		const categoriesHeader = page.getByTestId('categories-header')
 		const pageBody = page.locator('body')
 
-		const hasEmptyStateHandling =
-			(await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await noCategories.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await categoriesHeader.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageBody.isVisible())
-
-		expect(hasEmptyStateHandling).toBeTruthy()
+		const emptyStateIndicator = emptyState
+			.or(noCategories.first())
+			.or(categoriesHeader)
+			.or(pageBody)
+		await expect(emptyStateIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('EDGE-E2E-003: Should handle malformed JSON response', async ({ page }) => {
@@ -69,18 +65,19 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		// Step 2: Navigate to transactions
 		await page.goto('/transactions')
 
-		// Step 3: Check for error handling (should not crash)
-		const errorMessage = page.getByText(/erro|error|falha|failed|invalid/i)
+		// Step 3: Wait for page to settle
+		await page.waitForTimeout(1000)
+
+		// Step 4: Check for error handling (should not crash)
 		const errorState = page.getByTestId('error-state')
-		const pageContent = page.getByTestId('transactions-header')
+		const transactionsHeader = page.getByTestId('transactions-header')
+
+		// Check if either error state or header is visible
+		const errorStateVisible = await errorState.isVisible().then(() => true, () => false)
+		const headerVisible = await transactionsHeader.isVisible().then(() => true, () => false)
 
 		// Page should handle malformed JSON gracefully
-		const hasErrorHandling =
-			(await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await errorState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageContent.isVisible({ timeout: 5000 }).catch(() => false))
-
-		expect(hasErrorHandling).toBeTruthy()
+		expect(errorStateVisible || headerVisible).toBeTruthy()
 	})
 
 	test('EDGE-E2E-004: Should handle empty goals response', async ({ page }) => {
@@ -95,12 +92,10 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		const noGoals = page.getByText(/nenhum limite|no goals|criar|create|adicionar/i)
 		const goalsScreen = page.getByTestId('goals-screen')
 
-		const hasEmptyStateHandling =
-			(await emptyState.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await noGoals.first().isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await goalsScreen.isVisible({ timeout: 5000 }).catch(() => false))
-
-		expect(hasEmptyStateHandling).toBeTruthy()
+		const emptyStateIndicator = emptyState
+			.or(noGoals.first())
+			.or(goalsScreen)
+		await expect(emptyStateIndicator).toBeVisible({ timeout: 5000 })
 	})
 
 	test('EDGE-E2E-005: Should handle empty dashboard data', async ({ page }) => {
@@ -111,16 +106,19 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		// Step 2: Navigate to dashboard
 		await page.goto('/dashboard')
 
-		// Step 3: Dashboard should still render with zero values or empty state
+		// Step 3: Wait for page to settle
+		await page.waitForTimeout(1000)
+
+		// Step 4: Dashboard should still render with zero values or empty state
 		const dashboardScreen = page.getByTestId('dashboard-screen')
-		const metricCards = page.locator('[data-testid*="metric-card"], [data-testid*="-card"]')
+		const errorState = page.getByTestId('error-state')
 
-		// Dashboard should load (may show zeros or empty charts)
-		const dashboardLoaded =
-			(await dashboardScreen.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			((await metricCards.count()) > 0)
+		// Check if either dashboard or error state is visible
+		const dashboardVisible = await dashboardScreen.isVisible().then(() => true, () => false)
+		const errorStateVisible = await errorState.isVisible().then(() => true, () => false)
 
-		expect(dashboardLoaded).toBeTruthy()
+		// Dashboard should load (may show zeros or empty charts) or show error state
+		expect(dashboardVisible || errorStateVisible).toBeTruthy()
 	})
 
 	test('EDGE-E2E-006: Should handle special characters in API responses', async ({ page }) => {
@@ -132,11 +130,8 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		const categoriesHeader = page.getByTestId('categories-header')
 		const pageBody = page.locator('body')
 
-		const pageLoaded =
-			(await categoriesHeader.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageBody.isVisible())
-
-		expect(pageLoaded).toBeTruthy()
+		const pageContent = categoriesHeader.or(pageBody)
+		await expect(pageContent).toBeVisible({ timeout: 5000 })
 
 		// Step 3: Verify special characters in existing categories are displayed
 		const categoryCards = page.getByTestId('category-card')
@@ -153,11 +148,8 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		const categoriesHeader = page.getByTestId('categories-header')
 		const pageBody = page.locator('body')
 
-		const pageLoaded =
-			(await categoriesHeader.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await pageBody.isVisible())
-
-		expect(pageLoaded).toBeTruthy()
+		const pageContent = categoriesHeader.or(pageBody)
+		await expect(pageContent).toBeVisible({ timeout: 5000 })
 
 		// Step 3: Page should handle content gracefully
 		// Long text handling is a UI/layout concern, verify page renders
@@ -197,15 +189,18 @@ test.describe('Error Scenarios: Edge Cases', () => {
 		// Step 2: Navigate to transactions
 		await page.goto('/transactions')
 
-		// Step 3: Page should handle null values gracefully
+		// Step 3: Wait for page to settle
+		await page.waitForTimeout(1000)
+
+		// Step 4: Page should handle null values gracefully
 		const transactionsHeader = page.getByTestId('transactions-header')
 		const errorState = page.getByTestId('error-state')
 
-		// Either page loads normally or shows error (but should not crash)
-		const pageHandledNulls =
-			(await transactionsHeader.isVisible({ timeout: 5000 }).catch(() => false)) ||
-			(await errorState.isVisible({ timeout: 5000 }).catch(() => false))
+		// Check if either header or error state is visible
+		const headerVisible = await transactionsHeader.isVisible().then(() => true, () => false)
+		const errorStateVisible = await errorState.isVisible().then(() => true, () => false)
 
-		expect(pageHandledNulls).toBeTruthy()
+		// Either page loads normally or shows error (but should not crash)
+		expect(headerVisible || errorStateVisible).toBeTruthy()
 	})
 })

@@ -85,23 +85,15 @@ test.describe('M9: Group Transactions', () => {
 			// Step 4: Verify transactions are visible (try multiple selectors)
 			const transactionsList = page.getByTestId('group-transactions-list')
 			const transactionItem = page.getByTestId('group-transaction-item').first()
+			const currencyIndicator = page.getByText(/R\$/).first()
+			const emptyState = page.getByText(/nenhuma|empty|no transactions/i)
 
-			// Check if either the list or items are visible
-			const hasTransactionsList = await transactionsList.isVisible().catch(() => false)
-			const hasTransactionItems = await transactionItem.isVisible().catch(() => false)
-
-			if (hasTransactionsList || hasTransactionItems) {
-				// Transaction items are visible - test passes
-				// The items may have different internal structure than expected testIds
-				expect(hasTransactionsList || hasTransactionItems).toBeTruthy()
-			} else {
-				// Alternative: Check for transactions in the page content
-				// The transactions may be rendered without specific testIds
-				const hasR$ = await page.getByText(/R\$/).first().isVisible().catch(() => false)
-				const hasEmptyState = await page.getByText(/nenhuma|empty|no transactions/i).isVisible().catch(() => false)
-				// Either transactions exist (R$) or empty state is shown - both are valid
-				expect(hasR$ || hasEmptyState).toBeTruthy()
-			}
+			// Either transactions exist (list/items/R$) or empty state is shown - both are valid
+			const transactionsIndicator = transactionsList
+				.or(transactionItem)
+				.or(currencyIndicator)
+				.or(emptyState)
+			await expect(transactionsIndicator).toBeVisible({ timeout: 5000 })
 		}
 	})
 

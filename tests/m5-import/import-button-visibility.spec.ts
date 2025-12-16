@@ -84,7 +84,7 @@ test.describe('BUG: Import Button Visibility for New Accounts', () => {
 
       // If there's an empty state, verify it's visible (import is in header now)
       const emptyState = page.getByTestId('empty-state')
-      if (await emptyState.isVisible().catch(() => false)) {
+      if (await emptyState.isVisible().then(() => true, () => false)) {
         // Empty state should mention import option in description
         const importDescription = emptyState.getByText(/import/i)
         await expect(importDescription).toBeVisible()

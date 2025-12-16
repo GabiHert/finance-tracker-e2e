@@ -153,9 +153,9 @@ test.describe('M8: Dashboard Calculations', () => {
 
 		// At least one loading indicator should appear
 		const hasLoadingState =
-			(await loadingSkeleton.first().isVisible().catch(() => false)) ||
-			(await loadingSpinner.first().isVisible().catch(() => false)) ||
-			(await loadingIndicator.first().isVisible().catch(() => false))
+			(await loadingSkeleton.first().isVisible().then(() => true, () => false)) ||
+			(await loadingSpinner.first().isVisible().then(() => true, () => false)) ||
+			(await loadingIndicator.first().isVisible().then(() => true, () => false))
 
 		// If loading state detected, verify it eventually disappears
 		if (hasLoadingState) {

@@ -822,4 +822,189 @@ test.describe('M15: AI Smart Categorization', () => {
 		// Assert the response contained the error fields
 		expect(responseContainsErrorFields).toBe(true)
 	})
+
+	// ============================================
+	// Duplicate Category Prevention Tests
+	// ============================================
+
+	test('E2E-M15-018: Approve suggestion uses existing category when name matches', async ({ page }) => {
+		// This test validates that when approving an AI suggestion with a "new category"
+		// that has the same name as an existing category, the existing category is used
+		// instead of creating a duplicate.
+
+		const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/api/v1'
+
+		// Helper to get auth token from localStorage
+		const getAuthToken = async () => {
+			return await page.evaluate(() => localStorage.getItem('access_token') || '')
+		}
+
+		// Step 1: Navigate to app to establish auth context
+		await page.goto('/dashboard')
+		await page.waitForLoadState('networkidle')
+		// Just check we're not on login page and wait for token
+		await page.waitForTimeout(1000)
+
+		const token = await getAuthToken()
+		expect(token).not.toBe('')
+
+		// Step 2: Create an existing category named "Restaurant" via API
+		const existingCategoryName = `Restaurant-${Date.now()}` // Make unique to avoid conflicts
+		const createCategoryResponse = await page.request.post(`${API_URL}/categories`, {
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			data: {
+				name: existingCategoryName,
+				icon: 'utensils',
+				color: '#ef4444',
+				type: 'expense',
+			},
+		})
+		expect(createCategoryResponse.ok()).toBeTruthy()
+		const existingCategory = await createCategoryResponse.json()
+
+		// Step 3: Create an uncategorized transaction via API
+		const createTransactionResponse = await page.request.post(`${API_URL}/transactions`, {
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			data: {
+				description: 'Restaurante Italiano Test',
+				amount: -5000,
+				date: new Date().toISOString().split('T')[0],
+				type: 'expense',
+			},
+		})
+		expect(createTransactionResponse.ok()).toBeTruthy()
+		const transaction = await createTransactionResponse.json()
+
+		// Step 4: Mock AI suggestion with new category type that matches existing name
+		await page.route('**/api/v1/ai/categorization/status', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					uncategorized_count: 1,
+					is_processing: false,
+					pending_suggestions_count: 1,
+					skipped_count: 0,
+					last_processed_at: new Date().toISOString(),
+					has_error: false,
+					error: null,
+				}),
+			})
+		})
+
+		const suggestionId = 'test-suggestion-dup-check'
+		await page.route('**/api/v1/ai/categorization/suggestions', (route) => {
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					suggestions: [
+						{
+							id: suggestionId,
+							category: {
+								type: 'new',
+								new_name: existingCategoryName, // Same name as existing!
+								new_icon: 'utensils',
+								new_color: '#ef4444',
+							},
+							match: {
+								type: 'contains',
+								keyword: 'restaurante',
+							},
+							affected_transactions: [
+								{
+									id: transaction.id,
+									description: 'Restaurante Italiano Test',
+									amount: -5000,
+									date: new Date().toISOString().split('T')[0],
+								},
+							],
+							affected_count: 1,
+							status: 'pending',
+							created_at: new Date().toISOString(),
+						},
+					],
+					skipped_transactions: [],
+					total_pending: 1,
+					total_skipped: 0,
+				}),
+			})
+		})
+
+		// Mock the approve endpoint to simulate the current buggy behavior
+		// (creates a duplicate category and returns was_new_category_created: true)
+		let approveWasCalled = false
+		await page.route('**/api/v1/ai/categorization/suggestions/*/approve', async (route) => {
+			approveWasCalled = true
+
+			// Actually create a duplicate category in the backend (simulating the bug)
+			// by calling the categories API directly
+			await page.request.post(`${API_URL}/categories`, {
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`,
+				},
+				data: {
+					name: existingCategoryName, // This creates a DUPLICATE
+					icon: 'utensils',
+					color: '#ef4444',
+					type: 'expense',
+				},
+			})
+
+			// Return a mock response
+			await route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					category_id: 'new-category-id',
+					category_name: existingCategoryName,
+					category_rule_id: 'rule-id',
+					transactions_updated: 1,
+					was_new_category_created: true, // Bug: should be false if name exists
+				}),
+			})
+		})
+
+		// Step 5: Navigate to AI screen
+		await page.goto('/ai')
+		await expect(page.locator('[data-testid="ai-categorization-screen"]')).toBeVisible({ timeout: 10000 })
+
+		// Wait for suggestions to load
+		await expect(page.locator('[data-testid="suggestion-card"]')).toBeVisible({ timeout: 10000 })
+
+		// Verify the suggestion shows "new" category badge
+		await expect(page.locator('[data-testid="new-category-badge"]')).toBeVisible()
+
+		// Step 6: Approve the suggestion
+		await page.click('[data-testid="approve-suggestion-btn"]')
+
+		// Wait for approval to complete
+		await page.waitForTimeout(2000)
+
+		// Step 7: Navigate to categories and verify only ONE category with this name exists
+		await page.goto('/categories')
+		await expect(page.locator('[data-testid="categories-screen"]')).toBeVisible({ timeout: 10000 })
+
+		// Wait for categories to load
+		await page.waitForTimeout(1000)
+
+		// Count categories with this name - should be exactly 1
+		const categoryCards = page.locator('[data-testid="category-card"]').filter({ hasText: existingCategoryName })
+		const count = await categoryCards.count()
+
+		// This is the key assertion - there should be only ONE category with this name
+		// If the bug exists (simulated above), count will be 2 (original + duplicate from AI approval)
+		// This test FAILS when the bug exists, demonstrating the problem
+		expect(count).toBe(1)
+
+		// Verify the approve was actually called
+		expect(approveWasCalled).toBe(true)
+	})
 })

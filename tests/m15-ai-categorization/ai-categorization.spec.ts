@@ -55,8 +55,8 @@ test.describe('M15: AI Smart Categorization', () => {
 		await expect(page.locator('[data-testid="ai-categorization-screen"]')).toBeVisible({ timeout: 10000 })
 
 		// Wait for the loading to complete - should show idle or empty state, NOT error
-		// Give time for API call to complete
-		await page.waitForTimeout(2000)
+		// Wait for network to settle instead of fixed timeout
+		await page.waitForLoadState('networkidle')
 
 		// Verify we're NOT in error state (which would mean the API failed)
 		const errorState = page.locator('[data-testid="error-state"]')
@@ -816,8 +816,8 @@ test.describe('M15: AI Smart Categorization', () => {
 		await page.goto('/ai')
 		await expect(page.locator('[data-testid="ai-categorization-screen"]')).toBeVisible({ timeout: 10000 })
 
-		// Wait for the API call to complete
-		await page.waitForTimeout(2000)
+		// Wait for network to settle instead of fixed timeout
+		await page.waitForLoadState('networkidle')
 
 		// Assert the response contained the error fields
 		expect(responseContainsErrorFields).toBe(true)
@@ -985,15 +985,15 @@ test.describe('M15: AI Smart Categorization', () => {
 		// Step 6: Approve the suggestion
 		await page.click('[data-testid="approve-suggestion-btn"]')
 
-		// Wait for approval to complete
-		await page.waitForTimeout(2000)
+		// Wait for approval to complete by waiting for network
+		await page.waitForLoadState('networkidle')
 
 		// Step 7: Navigate to categories and verify only ONE category with this name exists
 		await page.goto('/categories')
 		await expect(page.locator('[data-testid="categories-screen"]')).toBeVisible({ timeout: 10000 })
 
 		// Wait for categories to load
-		await page.waitForTimeout(1000)
+		await page.waitForLoadState('networkidle')
 
 		// Count categories with this name - should be exactly 1
 		const categoryCards = page.locator('[data-testid="category-card"]').filter({ hasText: existingCategoryName })

@@ -242,6 +242,16 @@ export default defineConfig({
       testDir: './tests/test-infrastructure',
       use: { ...devices['Desktop Chrome'] },
     },
+    // M16 Interactive Charts tests - requires authentication (depends on auth-setup)
+    {
+      name: 'M16-interactive-charts',
+      testDir: './tests/M16-interactive-charts',
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
   ],
 
   // Global setup and teardown

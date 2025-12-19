@@ -36,7 +36,7 @@ echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
 
 # Wait for PostgreSQL
 echo -n "Waiting for PostgreSQL..."
-until docker exec finance-tracker-postgres-e2e pg_isready -U e2e_user -d finance_tracker_e2e > /dev/null 2>&1; do
+until docker exec finance-tracker-e2e-postgres pg_isready -U e2e_user -d finance_tracker_e2e > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
@@ -44,7 +44,7 @@ echo -e " ${GREEN}Ready!${NC}"
 
 # Wait for Redis
 echo -n "Waiting for Redis..."
-until docker exec finance-tracker-redis-e2e redis-cli -a e2e_redis_password ping > /dev/null 2>&1; do
+until docker exec finance-tracker-e2e-redis redis-cli -a e2e_redis_password ping > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done

@@ -108,6 +108,7 @@ services:
       - JWT_SECRET=e2e-jwt-secret-for-testing
       - JWT_EXPIRY=15m
       - REFRESH_TOKEN_EXPIRY=7d
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     ports:
       - "${BACKEND_E2E_PORT:-9081}:8081"
     volumes:

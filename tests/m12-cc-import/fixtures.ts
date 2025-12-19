@@ -375,6 +375,12 @@ function matchesBillPaymentPattern(description: string): boolean {
  * 5. Any transaction in M12 date range (nuclear option for complete isolation)
  */
 export async function cleanupTestTransactions(page: Page, testId: string): Promise<void> {
+  // Ensure page is navigated so localStorage is available
+  if (page.url() === 'about:blank') {
+    await page.goto('/transactions')
+    await page.waitForLoadState('domcontentloaded')
+  }
+
   // Try to get token - if page isn't properly set up, skip cleanup silently
   let token: string
   try {
@@ -383,16 +389,33 @@ export async function cleanupTestTransactions(page: Page, testId: string): Promi
     return // No token available, skip cleanup
   }
 
-  // Get all transactions for this user (with high limit to catch paginated data)
-  const response = await page.request.get('/api/v1/transactions?limit=1000', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
-  if (!response.ok()) return
+  // Get all transactions for this user in the M12 date ranges
+  // We need to fetch with date filters to ensure we get old transactions from 2018-2020
+  // without relying on pagination (which might not return old transactions if there are many recent ones)
+  const dateRanges = [
+    { startDate: '2018-10-01', endDate: '2018-11-30' }, // Refund validation range
+    { startDate: '2019-11-01', endDate: '2020-04-30' }, // Main M12 range
+  ]
 
-  const json = await response.json()
-  const transactions = json.data || json.transactions || []
+  const allTransactions: Array<{ id: string; description?: string; billing_cycle?: string; is_credit_card_payment?: boolean; date?: string }> = []
+
+  for (const range of dateRanges) {
+    const response = await page.request.get(
+      `/api/v1/transactions?limit=1000&startDate=${range.startDate}&endDate=${range.endDate}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    )
+    if (!response.ok()) continue
+
+    const json = await response.json()
+    const transactions = json.data || json.transactions || []
+    allTransactions.push(...transactions)
+  }
+
+  const transactions = allTransactions
 
   // Find transactions to delete - using aggressive cleanup to ensure test isolation
   // NOTE: M12 tests use 2019-12 to 2020-03 (dates that should never appear in production data)

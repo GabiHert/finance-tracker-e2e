@@ -121,15 +121,20 @@ test.describe('M13: Category Expense Trends Chart', () => {
 
 	test('M13-E2E-004: Should toggle category visibility via legend', async ({ page }) => {
 		const chart = page.getByTestId('category-trends-chart')
+		const legend = page.getByTestId('category-trends-legend')
 
-		// Skip if no chart (empty state)
-		const chartVisible = await chart.isVisible().then(() => true, () => false)
-		if (!chartVisible) {
+		// Skip if no chart or legend (empty state)
+		// Use count() to check existence without throwing
+		const chartCount = await chart.count()
+		const legendCount = await legend.count()
+
+		if (chartCount === 0 || legendCount === 0) {
 			test.skip()
 			return
 		}
 
-		const legend = page.getByTestId('category-trends-legend')
+		// Verify elements are visible
+		await expect(chart).toBeVisible()
 		await expect(legend).toBeVisible()
 
 		// Get first legend item

@@ -82,9 +82,10 @@ test.describe('BUG: Import Button Visibility for New Accounts', () => {
       await expect(importButton).toBeVisible({ timeout: 5000 })
       await expect(addButton).toBeVisible({ timeout: 5000 })
 
-      // If there's an empty state, verify it's visible (import is in header now)
+      // If there's an empty state, verify it mentions import option
       const emptyState = page.getByTestId('empty-state')
-      if (await emptyState.isVisible().then(() => true, () => false)) {
+      const isEmptyStateVisible = await emptyState.isVisible()
+      if (isEmptyStateVisible) {
         // Empty state should mention import option in description
         const importDescription = emptyState.getByText(/import/i)
         await expect(importDescription).toBeVisible()

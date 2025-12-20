@@ -9,6 +9,7 @@ async function globalSetup(config: FullConfig) {
 
   // Load .env.e2e from the e2e directory (use absolute path to ensure it's found)
   // For ES modules, we need to use import.meta.url to get the directory
+  // global-setup.ts is in e2e/tests/fixtures/, so go up 2 levels to reach e2e/
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = path.dirname(__filename)
   const envPath = path.resolve(__dirname, '../../.env.e2e')
@@ -19,8 +20,9 @@ async function globalSetup(config: FullConfig) {
   // so we must use TRUNCATE CASCADE to truly clear all data including soft-deleted
   // We also clean transactions to ensure M12 CC import tests start fresh
   console.log('Cleaning up test data...')
+  const postgresContainer = process.env.E2E_POSTGRES_CONTAINER || 'finance-tracker-postgres-e2e'
   try {
-    execSync('docker exec finance-tracker-postgres-e2e psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM transactions; DELETE FROM group_members; DELETE FROM groups;"', { stdio: 'pipe' })
+    execSync(`docker exec ${postgresContainer} psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM transactions; DELETE FROM group_members; DELETE FROM groups;"`, { stdio: 'pipe' })
     console.log('Test data cleaned successfully')
   } catch (error) {
     console.log('Note: Could not clean test data (may not exist yet)')

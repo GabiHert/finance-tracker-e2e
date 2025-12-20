@@ -225,6 +225,19 @@ export default defineConfig({
         storageState: 'tests/fixtures/.auth/user.json',
       },
     },
+    // M15 AI Categorization tests - requires authentication (depends on auth-setup)
+    // Run sequentially to avoid AI rate limiting and ensure consistent test data
+    {
+      name: 'm15-ai-categorization',
+      testDir: './tests/m15-ai-categorization',
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ['auth-setup'],
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/fixtures/.auth/user.json',
+      },
+    },
     // Amount Sign Consistency tests - verifies bank import preserves amount signs
     {
       name: 'amount-sign-consistency',

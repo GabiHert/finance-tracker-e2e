@@ -28,6 +28,9 @@ set -a
 source "$E2E_DIR/.env.e2e"
 set +a
 
+# Container prefix from env or default
+CONTAINER_PREFIX="${E2E_CONTAINER_PREFIX:-finance-tracker-e2e}"
+
 echo -e "${YELLOW}Starting E2E infrastructure...${NC}"
 docker-compose -f "$E2E_DIR/docker-compose.e2e.yml" --env-file "$E2E_DIR/.env.e2e" up -d
 
@@ -36,7 +39,7 @@ echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
 
 # Wait for PostgreSQL
 echo -n "Waiting for PostgreSQL..."
-until docker exec finance-tracker-postgres-e2e pg_isready -U e2e_user -d finance_tracker_e2e > /dev/null 2>&1; do
+until docker exec "${CONTAINER_PREFIX}-postgres" pg_isready -U e2e_user -d finance_tracker_e2e > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done
@@ -44,7 +47,7 @@ echo -e " ${GREEN}Ready!${NC}"
 
 # Wait for Redis
 echo -n "Waiting for Redis..."
-until docker exec finance-tracker-redis-e2e redis-cli -a e2e_redis_password ping > /dev/null 2>&1; do
+until docker exec "${CONTAINER_PREFIX}-redis" redis-cli -a e2e_redis_password ping > /dev/null 2>&1; do
     echo -n "."
     sleep 2
 done

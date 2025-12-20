@@ -26,7 +26,8 @@ test.describe('M16: Accessibility', () => {
 		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
 		await page.waitForLoadState('networkidle')
-		await page.waitForTimeout(500)
+		// Wait for chart to be rendered instead of fixed timeout
+		await expect(page.getByTestId('interactive-trends-chart')).toBeVisible({ timeout: 5000 })
 	})
 
 	test('E2E-ICHART-A11Y-001: Charts are keyboard navigable', async ({ page }) => {
@@ -53,11 +54,10 @@ test.describe('M16: Accessibility', () => {
 
 			// Arrow left should scroll to past
 			await page.keyboard.press('ArrowLeft')
-			await page.waitForTimeout(300)
 
 			// If we were at present (next disabled), next should now be enabled
 			if (initialDisabled) {
-				await expect(nextButton).toBeEnabled()
+				await expect(nextButton).toBeEnabled({ timeout: 2000 })
 			}
 		}
 	})
@@ -98,8 +98,8 @@ test.describe('M16: Accessibility', () => {
 		await weekOption.focus()
 		await page.keyboard.press('Enter')
 
-		// Selection should change
-		await page.waitForTimeout(500)
+		// Selection should change - wait for chart viewport to remain visible
+		await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 2000 })
 	})
 
 	test('E2E-ICHART-A11Y-005: Modal is accessible', async ({ page }) => {
@@ -144,17 +144,15 @@ test.describe('M16: Accessibility', () => {
 
 			// Home should jump to oldest data
 			await page.keyboard.press('Home')
-			await page.waitForTimeout(500)
 
 			// At oldest data, prev should be disabled
-			await expect(prevButton).toBeDisabled()
+			await expect(prevButton).toBeDisabled({ timeout: 2000 })
 
 			// End should jump to newest data
 			await page.keyboard.press('End')
-			await page.waitForTimeout(500)
 
 			// At newest data, next should be disabled
-			await expect(nextButton).toBeDisabled()
+			await expect(nextButton).toBeDisabled({ timeout: 2000 })
 		}
 	})
 

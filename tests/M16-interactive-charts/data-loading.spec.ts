@@ -67,10 +67,7 @@ test.describe('M16: Data Loading', () => {
 		await expect(prevButton).toBeEnabled()
 		await prevButton.click()
 
-		// Wait for navigation animation and API call
-		await page.waitForTimeout(500)
-
-		// Verify error toast appears
+		// Verify error toast appears (implicitly waits for it)
 		const toast = page.getByTestId('toast-error')
 		await expect(toast).toBeVisible({ timeout: 5000 })
 		await expect(toast).toContainText(/erro/i)
@@ -84,11 +81,12 @@ test.describe('M16: Data Loading', () => {
 		// Navigate to past to potentially find empty periods
 		const prevButton = page.getByTestId('chart-nav-prev')
 
-		// Click prev multiple times
+		// Click prev multiple times, waiting for chart update after each
 		for (let i = 0; i < 10; i++) {
 			if (await prevButton.isDisabled()) break
 			await prevButton.click()
-			await page.waitForTimeout(200)
+			// Wait for chart to finish updating
+			await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 2000 })
 		}
 
 		// Chart should still be visible even with empty data
@@ -153,16 +151,16 @@ test.describe('M16: Data Loading', () => {
 
 		// Navigate to past
 		await prevButton.click()
-		await page.waitForTimeout(500)
+		await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 2000 })
 		const callsAfterPrev = apiCallCount
 
 		// Navigate back to present
 		await nextButton.click()
-		await page.waitForTimeout(500)
+		await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 2000 })
 
 		// Navigate to past again - should use cache
 		await prevButton.click()
-		await page.waitForTimeout(500)
+		await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 2000 })
 
 		// Second visit to same position should not trigger new API call (cached)
 		// Allow for one additional call max

@@ -138,11 +138,9 @@ test.describe('M15-PROG: Progressive AI Categorization', () => {
 		await expect(page.locator('[data-testid="processing-state"]')).toBeVisible({ timeout: 10000 })
 		await expect(page.locator('text=/[Bb]atch 1.*4/')).toBeVisible()
 
-		// Wait for poll to update (3 second polling interval + buffer)
-		await page.waitForTimeout(4000)
-
+		// Wait for poll to update - use expect with timeout instead of waitForTimeout
 		// Updated state
-		await expect(page.locator('text=/[Bb]atch 2.*4/')).toBeVisible()
+		await expect(page.locator('text=/[Bb]atch 2.*4/')).toBeVisible({ timeout: 6000 })
 		await expect(page.locator('text=/80.*158/')).toBeVisible()
 	})
 
@@ -219,11 +217,9 @@ test.describe('M15-PROG: Progressive AI Categorization', () => {
 		// First batch - should have 5 suggestions (within first 3 seconds)
 		await expect(page.locator('[data-testid="suggestion-card"]')).toHaveCount(5, { timeout: 2000 })
 
-		// Wait for next batch (after 3 seconds from start + polling interval)
-		await page.waitForTimeout(4000)
-
+		// Wait for next batch - use expect with timeout instead of waitForTimeout
 		// Both batches - should have 10 suggestions
-		await expect(page.locator('[data-testid="suggestion-card"]')).toHaveCount(10)
+		await expect(page.locator('[data-testid="suggestion-card"]')).toHaveCount(10, { timeout: 6000 })
 	})
 
 	test('E2E-PROG-004: Can review suggestions while processing continues', async ({ page }) => {
@@ -516,11 +512,9 @@ test.describe('M15-PROG: Progressive AI Categorization', () => {
 		await expect(page.locator('[data-testid="processing-state"]')).toBeVisible({ timeout: 10000 })
 		await expect(page.locator('[data-testid="progress-bar"]')).toBeVisible()
 
-		// Wait for completion (4 seconds + polling interval + buffer)
-		await page.waitForTimeout(8000)
-
+		// Wait for completion - use expect with extended timeout instead of waitForTimeout
 		// Progress should be gone and suggestions state should be visible
-		await expect(page.locator('[data-testid="progress-bar"]')).not.toBeVisible({ timeout: 5000 })
+		await expect(page.locator('[data-testid="progress-bar"]')).not.toBeVisible({ timeout: 15000 })
 
 		// All suggestions visible
 		await expect(page.locator('[data-testid="suggestion-card"]')).toHaveCount(30)

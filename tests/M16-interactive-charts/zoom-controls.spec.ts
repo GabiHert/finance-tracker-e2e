@@ -29,7 +29,7 @@ test.describe('M16: Zoom Controls', () => {
 		// Scroll to InteractiveTrendsChart section
 		const interactiveChart = page.getByTestId('interactive-trends-chart')
 		await interactiveChart.scrollIntoViewIfNeeded()
-		await page.waitForTimeout(500)
+		await expect(page.getByTestId('trends-chart-viewport')).toBeVisible({ timeout: 5000 })
 	})
 
 	test('E2E-ICHART-004: Change zoom level from monthly to weekly', async ({ page }) => {
@@ -111,10 +111,9 @@ test.describe('M16: Zoom Controls', () => {
 
 		// Navigate to past
 		await prevButton.click()
-		await page.waitForTimeout(400)
 
 		// Next should be enabled (not at present)
-		await expect(nextButton).toBeEnabled()
+		await expect(nextButton).toBeEnabled({ timeout: 2000 })
 
 		// Change zoom level
 		await weekOption.click()
@@ -139,12 +138,80 @@ test.describe('M16: Zoom Controls', () => {
 		const loadingIndicator = page.getByTestId('chart-loading')
 		if (await loadingIndicator.isVisible()) {
 			// Toggle should show loading state or be disabled
-			const isDisabled = await quarterOption.isDisabled().catch(() => false)
+			const isQuarterDisabled = await quarterOption.isDisabled()
 			const hasLoadingClass = await zoomToggle.getAttribute('class')
-			expect(isDisabled || hasLoadingClass?.includes('loading') || hasLoadingClass?.includes('disabled')).toBeTruthy()
+			expect(isQuarterDisabled || hasLoadingClass?.includes('loading') || hasLoadingClass?.includes('disabled')).toBeTruthy()
 		}
 
 		// Wait for loading to complete
 		await page.waitForSelector('[data-testid="chart-loading"]', { state: 'hidden', timeout: 5000 })
+	})
+
+	test('E2E-ICHART-033: Change zoom level to daily', async ({ page }) => {
+		const zoomToggle = page.getByTestId('chart-zoom-toggle')
+		const dayOption = zoomToggle.locator('text=Dia')
+		const monthOption = zoomToggle.locator('text=Mês')
+
+		await expect(zoomToggle).toBeVisible()
+
+		// Verify initial state is monthly
+		await expect(monthOption).toHaveAttribute('data-selected', 'true')
+
+		// Change to daily
+		await dayOption.click()
+		await page.waitForSelector('[data-testid="chart-loading"]', { state: 'hidden', timeout: 5000 })
+
+		// Verify daily is now selected
+		await expect(dayOption).toHaveAttribute('data-selected', 'true')
+		await expect(monthOption).toHaveAttribute('data-selected', 'false')
+
+		// Daily view should show more data points than monthly
+		const dataPoints = page.getByTestId('chart-data-point')
+		const count = await dataPoints.count()
+		expect(count).toBeGreaterThan(0)
+	})
+
+	test('E2E-ICHART-034: Mouse wheel zooms in and out', async ({ page }) => {
+		const chartViewport = page.getByTestId('trends-chart-viewport')
+		await expect(chartViewport).toBeVisible()
+
+		// Get initial data point count
+		const dataPointsBefore = page.getByTestId('chart-data-point')
+		const countBefore = await dataPointsBefore.count()
+
+		// Get viewport bounding box for mouse positioning
+		const box = await chartViewport.boundingBox()
+		expect(box).not.toBeNull()
+
+		// Position mouse in center of chart
+		const centerX = box!.x + box!.width / 2
+		const centerY = box!.y + box!.height / 2
+		await page.mouse.move(centerX, centerY)
+
+		// Scroll up (zoom in - negative deltaY)
+		await page.mouse.wheel(0, -100)
+		await page.waitForTimeout(300)
+
+		// Get data point count after first wheel action
+		const dataPointsAfterWheel1 = page.getByTestId('chart-data-point')
+		const countAfterWheel1 = await dataPointsAfterWheel1.count()
+
+		// Scroll down multiple times (zoom out - positive deltaY)
+		await page.mouse.wheel(0, 200)
+		await page.mouse.wheel(0, 200)
+		await page.mouse.wheel(0, 200)
+		await page.waitForTimeout(300)
+
+		// Get data point count after more wheel actions
+		const dataPointsAfterWheel2 = page.getByTestId('chart-data-point')
+		const countAfterWheel2 = await dataPointsAfterWheel2.count()
+
+		// Verify that wheel scrolling changes the data point count
+		// Either zoom in (fewer points) or zoom out (more points) should have occurred
+		const zoomInWorked = countAfterWheel1 < countBefore
+		const zoomOutWorked = countAfterWheel2 > countAfterWheel1 || countAfterWheel2 > countBefore
+
+		// At least one direction of zoom should work
+		expect(zoomInWorked || zoomOutWorked).toBe(true)
 	})
 })

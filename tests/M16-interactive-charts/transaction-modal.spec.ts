@@ -26,7 +26,7 @@ test.describe('M16: Transaction Modal', () => {
 		await page.goto('/dashboard')
 		await expect(page.getByTestId('dashboard-screen')).toBeVisible()
 		await page.waitForLoadState('networkidle')
-		await page.waitForTimeout(500)
+		await expect(page.getByTestId('chart-data-point').first()).toBeVisible({ timeout: 5000 })
 	})
 
 	test('E2E-ICHART-006: Open transaction modal by clicking data point', async ({ page }) => {
@@ -55,8 +55,8 @@ test.describe('M16: Transaction Modal', () => {
 
 		// Either transactions or empty state should be present
 		const hasTransactions = (await transactions.count()) > 0
-		const hasEmptyState = await emptyState.isVisible().catch(() => false)
-		expect(hasTransactions || hasEmptyState).toBeTruthy()
+		const isEmptyStateVisible = await emptyState.isVisible()
+		expect(hasTransactions || isEmptyStateVisible).toBeTruthy()
 	})
 
 	test('E2E-ICHART-007: Navigate to full transactions from modal', async ({ page }) => {

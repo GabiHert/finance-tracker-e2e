@@ -12,6 +12,11 @@ tests/
 
 # Environment
 .env
+.env.e2e
+
+# Test artifacts
+playwright-report/
+test-results/
 
 # Worktree configuration override
 .worktree-offset

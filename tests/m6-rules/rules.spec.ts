@@ -90,8 +90,11 @@ test.describe('M6: Category Rules Engine', () => {
     // Save the rule
     await page.getByTestId('save-rule-btn').click()
 
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 })
+
     // Verify rule appears in the list (at least one rule row should be visible)
-    await expect(page.getByTestId('rule-row').first()).toBeVisible()
+    await expect(page.getByTestId('rule-row').first()).toBeVisible({ timeout: 10000 })
     await expect(page.getByTestId('rule-pattern').last()).toContainText('.*UBER.*')
   })
 
@@ -358,8 +361,11 @@ test.describe('M6: Category Rules Engine', () => {
 
     await firstHandle.dragTo(secondRule)
 
-    // Wait for reorder to save
-    await page.waitForTimeout(500)
+    // Wait for reorder to save - expect the first pattern to change
+    await expect(async () => {
+      const newFirstPattern = await page.getByTestId('rule-pattern').first().textContent()
+      expect(newFirstPattern).not.toBe(firstRulePattern)
+    }).toPass({ timeout: 2000 })
 
     // Verify order changed (first pattern should now be different)
     const newFirstPattern = await page.getByTestId('rule-pattern').first().textContent()
@@ -417,12 +423,12 @@ test.describe('M6: Category Rules Engine', () => {
     const emptyState = page.getByTestId('rules-empty-state')
     const rulesList = page.getByTestId('rules-list')
 
-    // Wait a moment for the content to load
-    await page.waitForTimeout(500)
+    // Wait for content to load using expect pattern
+    await expect(emptyState.or(rulesList)).toBeVisible({ timeout: 5000 })
 
     // Check which element is visible
-    const emptyStateVisible = await emptyState.isVisible().then(() => true, () => false)
-    const rulesListVisible = await rulesList.isVisible().then(() => true, () => false)
+    const emptyStateVisible = await emptyState.isVisible()
+    const rulesListVisible = await rulesList.isVisible()
 
     // If empty state is showing (no rules), validate it
     if (emptyStateVisible && !rulesListVisible) {

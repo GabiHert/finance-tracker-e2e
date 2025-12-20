@@ -4,6 +4,23 @@ import * as path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
 
+function detectPostgresContainer(): string {
+  // Try to find the postgres container for this worktree
+  try {
+    const containers = execSync('docker ps --filter "name=postgres" --format "{{.Names}}"', { encoding: 'utf-8' }).trim().split('\n')
+    // Look for E2E postgres container - prioritize worktree-specific ones
+    const e2eContainer = containers.find(name => name.includes('-e2e-') && name.includes('-postgres'))
+    if (e2eContainer) return e2eContainer
+    // Fall back to regular E2E container
+    const regularContainer = containers.find(name => name.includes('postgres-e2e') || name.includes('e2e') && name.includes('postgres'))
+    if (regularContainer) return regularContainer
+    // Last resort
+    return containers[0] || 'finance-tracker-postgres-e2e'
+  } catch {
+    return 'finance-tracker-postgres-e2e'
+  }
+}
+
 async function globalSetup(config: FullConfig) {
   console.log('\n=== E2E Global Setup ===')
 
@@ -20,7 +37,8 @@ async function globalSetup(config: FullConfig) {
   // so we must use TRUNCATE CASCADE to truly clear all data including soft-deleted
   // We also clean transactions to ensure M12 CC import tests start fresh
   console.log('Cleaning up test data...')
-  const postgresContainer = process.env.E2E_POSTGRES_CONTAINER || 'finance-tracker-postgres-e2e'
+  const postgresContainer = process.env.E2E_POSTGRES_CONTAINER || detectPostgresContainer()
+  console.log(`Using postgres container: ${postgresContainer}`)
   try {
     execSync(`docker exec ${postgresContainer} psql -U e2e_user -d finance_tracker_e2e -c "TRUNCATE category_rules CASCADE; DELETE FROM transactions; DELETE FROM group_members; DELETE FROM groups;"`, { stdio: 'pipe' })
     console.log('Test data cleaned successfully')

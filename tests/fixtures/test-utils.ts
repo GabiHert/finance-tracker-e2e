@@ -394,6 +394,7 @@ export const TEST_CATEGORIES = {
 
 /**
  * Helper to seed standard test categories
+ * If a category already exists (409), it fetches and returns the existing one
  */
 export async function seedTestCategories(
   page: Page,
@@ -406,7 +407,19 @@ export async function seedTestCategories(
       const created = await createCategory(page, cat)
       createdCategories.push(created)
     } catch (error) {
-      console.log(`Could not create category ${cat.name}: ${error}`)
+      // If category already exists, fetch it
+      if (String(error).includes('409')) {
+        const existingCategories = await fetchCategories(page)
+        const existing = existingCategories.find(c => c.name === cat.name)
+        if (existing) {
+          createdCategories.push(existing)
+          console.log(`Category ${cat.name} already exists, using existing`)
+        } else {
+          console.log(`Could not find existing category ${cat.name}: ${error}`)
+        }
+      } else {
+        console.log(`Could not create category ${cat.name}: ${error}`)
+      }
     }
   }
 

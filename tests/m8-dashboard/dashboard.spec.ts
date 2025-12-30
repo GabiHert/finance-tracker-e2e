@@ -271,7 +271,7 @@ test.describe('M8: Dashboard & Analytics', () => {
 		}
 	})
 
-	test('M8-E2E-006: Should display spending trends line chart', async ({ page }) => {
+	test('M8-E2E-006: Should display cumulative balance trends chart', async ({ page }) => {
 		await page.goto('/dashboard')
 
 		// Wait for dashboard to load
@@ -281,24 +281,32 @@ test.describe('M8: Dashboard & Analytics', () => {
 		// Wait for any async chart loading
 		await page.waitForTimeout(1000)
 
-		// Verify trends chart exists - look for various possible selectors
+		// Verify trends chart exists
 		const trendsChart = page.getByTestId('trends-chart')
-		const financialEvolution = page.locator('h3:has-text("Evolucao Financeira")').locator('..')
-		const chartContainer = page.locator('[class*="chart"]').first()
-
-		// Check which chart element is visible
 		const trendsVisible = await trendsChart.isVisible().then(() => true, () => false)
-		const evolutionVisible = await financialEvolution.isVisible().then(() => true, () => false)
-		const containerVisible = await chartContainer.isVisible().then(() => true, () => false)
 
-		// At least one chart representation should be visible
-		expect(trendsVisible || evolutionVisible || containerVisible).toBeTruthy()
+		// Should display the trends chart
+		expect(trendsVisible).toBeTruthy()
 
-		// If trends chart is specifically visible, verify it has content
+		// If trends chart is visible, verify it's the cumulative balance type
 		if (trendsVisible) {
-			const trendLines = trendsChart.locator('path, line, svg, canvas')
-			const hasContent = (await trendLines.count()) > 0
+			// Check for balance line (new single-line chart)
+			const balanceLine = page.locator('[data-testid="balance-line"]')
+			const balanceLineVisible = await balanceLine.isVisible().then(() => true, () => false)
+
+			// Check for zero reference line
+			const zeroLine = page.locator('[data-testid="zero-line"]')
+			const zeroLineVisible = await zeroLine.isVisible().then(() => true, () => false)
+
+			// At minimum, the chart should have SVG content (lines, paths)
+			const chartContent = trendsChart.locator('path, line, svg')
+			const hasContent = (await chartContent.count()) > 0
 			expect(hasContent).toBeTruthy()
+
+			// If this is the new cumulative balance chart, verify its elements
+			if (balanceLineVisible) {
+				expect(zeroLineVisible).toBeTruthy()
+			}
 		}
 	})
 

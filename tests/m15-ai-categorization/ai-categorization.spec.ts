@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { API_URL } from '../fixtures/test-utils'
 
 /**
  * M15-E2E: AI Smart Categorization
@@ -831,8 +832,6 @@ test.describe('M15: AI Smart Categorization', () => {
 		// This test validates that when approving an AI suggestion with a "new category"
 		// that has the same name as an existing category, the existing category is used
 		// instead of creating a duplicate.
-
-		const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8081/api/v1'
 
 		// Helper to get auth token from localStorage
 		const getAuthToken = async () => {

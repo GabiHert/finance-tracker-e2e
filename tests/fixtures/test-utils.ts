@@ -511,11 +511,12 @@ export async function deleteTransaction(page: Page, transactionId: string): Prom
 
 /**
  * Helper to fetch all transactions via API
+ * Uses high limit to ensure all transactions are returned
  */
 export async function fetchTransactions(page: Page): Promise<TestTransaction[]> {
   const token = await getAuthToken(page)
 
-  const response = await page.request.get(`${API_URL}/transactions`, {
+  const response = await page.request.get(`${API_URL}/transactions?limit=1000`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

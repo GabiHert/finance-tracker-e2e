@@ -463,7 +463,7 @@ test.describe('M12: Credit Card Statement Import', () => {
     await expect(page.getByTestId('collapse-confirm-dialog')).not.toBeVisible()
 
     // Verify CC transactions still exist
-    await expect(page.getByTestId('cc-badge')).toBeVisible()
+    await expect(page.getByTestId('cc-badge').first()).toBeVisible()
   })
 
   // ============================================================

@@ -292,35 +292,37 @@ export async function completeImportFlow(
  * Set the date filter to show M12 test date range (2019-11 to 2020-04)
  * This is needed because after import, the page shows current month by default
  *
- * NOTE: The DatePicker component only triggers onChange on blur, so we must:
- * 1. Fill the input
- * 2. Press Tab to trigger blur and move to next field
- * 3. Wait for the API to refresh
+ * Uses DatePicker inputs for reliable date filtering
  */
 export async function setM12DateFilter(page: Page): Promise<void> {
-  // Navigate to transactions page
+  // Navigate to transactions page first
   await page.goto('/transactions')
   await page.waitForLoadState('networkidle')
 
-  // Set start date - click the date picker input, fill it, and blur
-  const startDateInput = page.getByTestId('filter-start-date').getByRole('textbox')
+  // Wait for filter bar to be visible
+  await page.getByTestId('filter-bar').waitFor({ state: 'visible', timeout: 10000 })
+
+  // Clear any existing date filters first by clicking clear button if present
+  const clearBtn = page.getByTestId('filter-clear-btn')
+  const clearBtnCount = await clearBtn.count()
+  if (clearBtnCount > 0 && await clearBtn.isVisible()) {
+    await clearBtn.click()
+    await page.waitForLoadState('networkidle')
+  }
+
+  // Set start date - use the correct testid for DatePicker input
+  const startDateInput = page.getByTestId('filter-start-date-input')
   await startDateInput.click()
   await startDateInput.fill('01/11/2019')
-  // Press Tab to trigger blur and move focus to end date
-  await page.keyboard.press('Tab')
+  await startDateInput.blur()
 
-  // Wait a moment for the filter to be applied
-  await page.waitForTimeout(300)
-
-  // Set end date - click the date picker input, fill it, and blur
-  const endDateInput = page.getByTestId('filter-end-date').getByRole('textbox')
+  // Set end date - use the correct testid for DatePicker input
+  const endDateInput = page.getByTestId('filter-end-date-input')
   await endDateInput.click()
   await endDateInput.fill('30/04/2020')
-  // Press Tab to trigger blur and apply the filter
-  await page.keyboard.press('Tab')
+  await endDateInput.blur()
 
-  // Wait for the filter to apply and API to refresh
-  await page.waitForTimeout(500)
+  // Wait for the API to fetch filtered transactions
   await page.waitForLoadState('networkidle')
 }
 
@@ -334,9 +336,10 @@ export async function navigateToDateRange(page: Page, startDate: string, endDate
 
 /**
  * Check if a date falls within the M12 test date range
- * M12 tests use 2019-12 to 2020-03, with backend search ±1 month
- * So we need to clean 2019-11 to 2020-04 to avoid any interference
- * Also includes 2018-10 to 2018-11 for refund validation tests
+ * M12 tests use various date ranges for isolation:
+ * - Main: 2019-12 to 2020-03, with backend search ±1 month = 2019-11 to 2020-04
+ * - Refund validation: 2018-10 to 2018-11
+ * - realNubankCSV: 2024-04 to 2024-05
  */
 function isDateInM12Range(dateStr: string): boolean {
   if (!dateStr) return false
@@ -347,8 +350,12 @@ function isDateInM12Range(dateStr: string): boolean {
   // Refund validation test range (2018-10 to 2018-11)
   const refundStartDate = new Date('2018-10-01')
   const refundEndDate = new Date('2018-11-30')
+  // realNubankCSV test range (2024-04 to 2024-05)
+  const realNubankStartDate = new Date('2024-04-01')
+  const realNubankEndDate = new Date('2024-05-31')
   return (date >= startDate && date <= endDate) ||
-         (date >= refundStartDate && date <= refundEndDate)
+         (date >= refundStartDate && date <= refundEndDate) ||
+         (date >= realNubankStartDate && date <= realNubankEndDate)
 }
 
 /**
@@ -395,6 +402,7 @@ export async function cleanupTestTransactions(page: Page, testId: string): Promi
   const dateRanges = [
     { startDate: '2018-10-01', endDate: '2018-11-30' }, // Refund validation range
     { startDate: '2019-11-01', endDate: '2020-04-30' }, // Main M12 range
+    { startDate: '2024-04-01', endDate: '2024-05-31' }, // realNubankCSV range
   ]
 
   const allTransactions: Array<{ id: string; description?: string; billing_cycle?: string; is_credit_card_payment?: boolean; date?: string }> = []
@@ -417,18 +425,15 @@ export async function cleanupTestTransactions(page: Page, testId: string): Promi
 
   const transactions = allTransactions
 
-  // Find transactions to delete - using aggressive cleanup to ensure test isolation
-  // NOTE: M12 tests use 2019-12 to 2020-03 (dates that should never appear in production data)
-  // Also includes 2018-10, 2018-11 for refund validation tests
-  const m12BillingCycles = ['2018-10', '2018-11', '2019-12', '2020-01', '2020-02', '2020-03']
   const testIdPattern = /\[test-[a-z0-9-]+\]/
   const testTransactions = transactions.filter(
     (t: { description?: string; billing_cycle?: string; is_credit_card_payment?: boolean; expanded_at?: string; date?: string }) => {
       // 1. Transactions with test ID pattern in description
       if (t.description?.match(testIdPattern)) return true
 
-      // 2. CC transactions in M12 billing cycles
-      if (t.billing_cycle && m12BillingCycles.includes(t.billing_cycle)) return true
+      // 2. ALL CC transactions (any with billing_cycle) - ensures complete isolation
+      // This is the nuclear option: clean ALL credit card transactions regardless of date
+      if (t.billing_cycle) return true
 
       // 3. Bill payments (is_credit_card_payment=true) in M12 date range
       if (t.is_credit_card_payment && isDateInM12Range(t.date || '')) return true

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { deleteAllCategoryRules, seedTestCategories, TEST_CATEGORIES } from '../fixtures/test-utils'
+import { deleteAllCategoryRules, seedTestCategories, TEST_CATEGORIES, API_URL } from '../fixtures/test-utils'
 
 /**
  * M6-E2E: Rule Application and Auto-Categorization
@@ -356,7 +356,6 @@ test.describe('M6: Rule Application', () => {
 
 		// Step 1: Create a category via API
 		const token = await page.evaluate(() => localStorage.getItem('access_token') || '')
-		const API_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:9081/api/v1'
 
 		const categoryResponse = await page.request.post(`${API_URL}/categories`, {
 			headers: {

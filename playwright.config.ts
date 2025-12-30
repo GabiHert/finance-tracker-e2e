@@ -188,14 +188,28 @@ export default defineConfig({
     // M12 Credit Card Import tests - requires authentication (depends on auth-setup)
     // Run sequentially with single worker to avoid race conditions with bill payment matching
     // Multiple tests create bill payments with same amounts, causing match conflicts
-    // Depends on most other test projects to avoid concurrent database modifications
+    // Depends on ALL test projects that might create transactions to avoid concurrent database modifications
     // This ensures M12 runs after other tests that might create conflicting transaction data
     {
       name: 'm12-cc-import',
       testDir: './tests/m12-cc-import',
       fullyParallel: false,
       workers: 1,
-      dependencies: ['auth-setup', 'm4-transactions', 'm5-import', 'm6-rules', 'm8-dashboard', 'error-scenarios'],
+      dependencies: [
+        'auth-setup',
+        'm3-categories',
+        'm4-transactions',
+        'm5-import',
+        'm6-rules',
+        'm7-goals',
+        'm8-dashboard',
+        'm9-groups',
+        'm10-settings',
+        'm11-polish',
+        'm13-category-trends',
+        'M16-interactive-charts',
+        'error-scenarios',
+      ],
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'tests/fixtures/.auth/user.json',
@@ -239,10 +253,14 @@ export default defineConfig({
       },
     },
     // Amount Sign Consistency tests - verifies bank import preserves amount signs
+    // Run sequentially with single worker to avoid race conditions with import wizard
+    // Depends on m12-cc-import to avoid concurrent import operations
     {
       name: 'amount-sign-consistency',
       testDir: './tests/amount-sign-consistency',
-      dependencies: ['auth-setup'],
+      fullyParallel: false,
+      workers: 1,
+      dependencies: ['auth-setup', 'm12-cc-import'],
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'tests/fixtures/.auth/user.json',
